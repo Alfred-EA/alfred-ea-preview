@@ -1,0 +1,14 @@
+<style>
+/* Cache le header Webador qui écrase ton entête */
+.block-header,
+.js-topbar-content-container,
+.js-fixed-header-container,
+#jw-menu {
+  display:none !important;
+  visibility:hidden !important;
+  opacity:0 !important;
+  height:0 !important;
+  overflow:hidden !important;
+  pointer-events:none !important;
+}
+</style>

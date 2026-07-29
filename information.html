@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#030303">
+  <title>Informations — Alfred-EA</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Manrope:wght@400;500;600;700&display=swap');
+    :root{--bg:#030303;--panel:#0c131f;--gold:#e4bc57;--gold2:#ffe093;--text:#fffdf7;--muted:#c2beb5}
+    *{box-sizing:border-box}body{margin:0;min-height:100vh;background:radial-gradient(circle at 50% 0,rgba(228,188,87,.15),transparent 38%),var(--bg);color:var(--text);font-family:Manrope,Arial,sans-serif}a{color:inherit;text-decoration:none}.wrap{width:min(980px,calc(100% - 34px));margin:auto}.site-header{height:92px!important;display:flex;align-items:center;position:sticky;top:0;z-index:20;background:rgba(3,3,3,.94);border-bottom:1px solid rgba(255,255,255,.025);backdrop-filter:blur(12px)}.site-nav{width:min(1240px,calc(100% - 42px));margin:auto;display:flex;align-items:center;justify-content:space-between;gap:25px}.site-brand{display:flex;align-items:center;gap:12px;color:var(--gold2);font:700 25px Cinzel;letter-spacing:.08em;white-space:nowrap}.site-brand img{width:49px;height:42px;object-fit:contain}.menu-links{display:flex;align-items:center;gap:45px;font-size:14px}.menu-links a{color:#ddd;white-space:nowrap;padding:9px 0;border-bottom:2px solid transparent}.menu-links a:hover,.menu-links a.active{color:var(--gold2);border-color:var(--gold)}
+    header{height:78px;border-bottom:1px solid rgba(255,255,255,.06);display:flex;align-items:center}.nav{display:flex;align-items:center;justify-content:space-between}.brand{display:flex;align-items:center;gap:10px;color:var(--gold2);font:700 21px Cinzel;letter-spacing:.08em}.brand img{width:43px;height:39px;object-fit:contain}.back{font-size:13px;color:#aaa79f;border:1px solid rgba(255,255,255,.13);padding:9px 16px;border-radius:999px}.live-strip{display:grid;grid-template-columns:auto repeat(3,1fr);align-items:center;background:linear-gradient(145deg,rgba(10,16,26,.06),rgba(7,11,18,.04));border:1px solid rgba(228,188,87,.48);border-radius:14px;margin-top:18px;padding:12px 18px;box-shadow:0 0 28px rgba(228,188,87,.08);backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px)}.live-title{color:var(--gold2);font:700 11px Cinzel;letter-spacing:.08em;padding-right:22px}.live-stat{padding:0 18px;border-left:1px solid rgba(228,188,87,.3)}.live-stat span{display:block;color:#8e8a82;font-size:8px;text-transform:uppercase}.live-stat strong{font-size:19px;color:var(--gold2)}
+    main{padding:90px 0}.intro-block{position:relative;padding-right:150px}.hero-mark{position:absolute;right:18px;top:-20px;width:115px;height:95px;object-fit:contain;opacity:.82;filter:drop-shadow(0 0 24px rgba(228,188,87,.32));transform:rotate(-4deg)}.eyebrow{color:var(--gold2);font-size:10px;letter-spacing:.18em;text-transform:uppercase;font-weight:700}h1{font-size:clamp(39px,7vw,66px);line-height:1.05;letter-spacing:-.045em;margin:14px 0}.lead{color:var(--muted);font-size:16px;max-width:650px;line-height:1.7}
+    .overview{display:grid;grid-template-columns:repeat(3,1fr);gap:15px;margin-top:42px}.topic{border:1px solid rgba(228,188,87,.22);border-radius:17px;background:linear-gradient(145deg,#101827,#090e17);padding:25px;box-shadow:0 16px 40px rgba(0,0,0,.25)}.topic span{display:block;color:var(--gold2);font:700 11px Cinzel;margin-bottom:24px}.topic h2{font-size:18px;margin:0 0 9px}.topic p{color:#c0bcb3;font-size:13px;line-height:1.65;margin:0}
+    .risk{margin-top:18px;border-left:3px solid var(--gold);border-block:1px solid rgba(228,188,87,.16);background:rgba(228,188,87,.09);padding:20px 24px;color:#c7c2b8;font-size:13px}.risk strong{display:block;color:var(--gold2);margin-bottom:5px}
+    .faq{margin-top:64px}.faq-title{font-size:32px;letter-spacing:-.03em;margin:8px 0 22px}.faq-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:start}details{border:1px solid rgba(255,255,255,.13);border-radius:14px;background:#0b111b;padding:0 19px;box-shadow:0 10px 28px rgba(0,0,0,.18)}summary{cursor:pointer;list-style:none;padding:18px 30px 18px 0;font-size:13px;font-weight:600;position:relative;color:#f4f1e9}summary::-webkit-details-marker{display:none}summary:after{content:"+";position:absolute;right:0;color:var(--gold2);font-size:20px;top:12px}details[open] summary:after{content:"−"}details p{color:#bbb7ae;font-size:12px;line-height:1.7;margin:0;padding:0 0 18px}
+    footer{border-top:1px solid rgba(255,255,255,.06);padding:30px 0;color:#66645f;font-size:11px}
+    @media(max-width:700px){.site-header{height:auto!important;padding:10px 0}.site-nav{width:calc(100% - 24px);display:block}.site-brand{font-size:17px}.site-brand img{width:36px;height:32px}.menu-links{margin-top:8px;gap:22px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none}.menu-links::-webkit-scrollbar{display:none}main{padding:60px 0}.intro-block{padding-right:0}.hero-mark{position:relative;right:auto;top:auto;width:76px;height:62px;margin-bottom:12px;opacity:.5}.overview,.faq-grid{grid-template-columns:1fr}.faq{margin-top:45px}.live-strip{grid-template-columns:repeat(3,1fr);padding:12px}.live-title{grid-column:1/-1;padding:0 0 9px;text-align:center}.live-stat{padding:0 8px;text-align:center}.live-stat:nth-child(2){border-left:0}.live-stat strong{font-size:16px}}
+  </style>
+</head>
+<body>
+  <header class="site-header"><nav class="site-nav"><a class="site-brand" href="partner-concept.html"><img src="assets/alfred-hat.png" alt="">ALFRED-EA</a><div class="menu-links"><a href="partner-concept.html">Accueil</a><a href="partner-concept.html#commencer">Calculatrice du rendement</a><a href="broker-account.html">Compte courtier</a><a href="subscription.html">Abonnement</a><a href="results-mt5.html">Résultats MT5</a><a class="active" href="information.html">Informations</a></div></nav></header>
+  <div class="wrap"><div class="live-strip"><div class="live-title">PERFORMANCE LIVE</div><div class="live-stat"><span>Semaine</span><strong id="infoFxWeek">--</strong></div><div class="live-stat"><span>Mois</span><strong id="infoFxMonth">--</strong></div><div class="live-stat"><span>Depuis ouverture</span><strong id="infoFxTotal">--</strong></div></div></div>
+  <main>
+    <div class="wrap">
+      <div class="intro-block">
+        <img class="hero-mark" src="assets/alfred-hat.png" alt="">
+        <div class="eyebrow">Centre d’information</div>
+        <h1>Tout comprendre, simplement.</h1>
+        <p class="lead">L’essentiel sur le fonctionnement d’Alfred‑EA, le contrôle de votre compte et les risques à comprendre avant de commencer.</p>
+      </div>
+
+      <section class="overview" aria-label="Présentation d’Alfred-EA">
+        <article class="topic"><span>01 · FONCTIONNEMENT</span><h2>Des entrées sélectionnées</h2><p>Alfred‑EA utilise une stratégie de grille contrôlée et intervient seulement lorsque ses conditions sont réunies. Il peut rester inactif plusieurs jours si le marché ne présente pas une configuration adéquate.</p></article>
+        <article class="topic"><span>02 · CONTRÔLE</span><h2>Votre compte reste le vôtre</h2><p>Le robot agit directement sur votre compte MetaTrader 5. Alfred‑EA n’a pas accès à vos fonds; vous gardez le contrôle de votre capital et de vos retraits.</p></article>
+        <article class="topic"><span>03 · PHILOSOPHIE</span><h2>La qualité avant la quantité</h2><p>La stratégie privilégie la discipline et la qualité des entrées plutôt qu’un nombre élevé de transactions ou la recherche de gains rapides.</p></article>
+      </section>
+
+      <aside class="risk"><strong>Comprendre le risque</strong>Le trading comporte toujours un risque de perte, même lorsqu’il est automatisé. Une limite de baisse de 30 % est appliquée par défaut. La stratégie évite l’effet de levier agressif et la martingale, mais aucune mesure ne peut garantir la protection du capital. Les performances passées ne garantissent pas les résultats futurs.</aside>
+
+      <section class="faq">
+        <div class="eyebrow">Questions fréquentes</div>
+        <h2 class="faq-title">Des réponses courtes et claires.</h2>
+        <div class="faq-grid">
+          <details><summary>Pourquoi le robot peut-il rester inactif?</summary><p>Il attend que toutes les conditions de sa stratégie soient réunies. Ne pas forcer de transaction fait partie de son fonctionnement.</p></details>
+          <details><summary>Combien de transactions effectue-t-il?</summary><p>Il n’existe pas de nombre fixe. L’activité dépend des conditions du marché et peut varier fortement d’une semaine à l’autre.</p></details>
+          <details><summary>Qui contrôle mon argent?</summary><p>Vous contrôlez votre compte et vos fonds auprès du courtier. Alfred‑EA exécute la stratégie sur MT5 sans détenir votre capital.</p></details>
+          <details><summary>Puis-je retirer mes gains?</summary><p>Vous pouvez demander un retrait auprès de votre courtier. Vérifiez toujours ses conditions, délais et exigences.</p></details>
+          <details><summary>Puis-je perdre mon capital?</summary><p>Oui. Toute activité de trading comporte un risque de perte partielle ou totale, même avec des paramètres prudents.</p></details>
+          <details><summary>Qu’est-ce qu’un stop loss?</summary><p>C’est une instruction qui ferme une position à un niveau défini afin de limiter une perte. Elle réduit le risque sans l’éliminer.</p></details>
+          <details><summary>Puis-je utiliser un autre courtier?</summary><p>La compatibilité doit être vérifiée avant l’installation. Utilisez la page Compte courtier pour consulter les options proposées.</p></details>
+          <details><summary>Quelle devise dois-je utiliser?</summary><p>Le calculateur et les exemples du site sont présentés en USD. Confirmez les devises disponibles directement auprès du courtier.</p></details>
+          <details><summary>Mon abonnement change-t-il automatiquement?</summary><p>Le forfait applicable dépend des règles d’abonnement et de la valeur du compte. Vérifiez votre niveau avant chaque renouvellement.</p></details>
+          <details><summary>Dois-je déclarer mes gains?</summary><p>Les obligations fiscales varient selon votre lieu de résidence. Consultez un fiscaliste ou l’autorité compétente de votre pays.</p></details>
+        </div>
+      </section>
+    </div>
+  </main>
+  <footer><div class="wrap">Alfred‑EA · Informations générales · <a href="disclaimer.html">Clauses de non-responsabilité</a> · Le trading comporte un risque de perte.</div></footer>
+  <script src="https://www.fxblue.com/users/CQIPKZ/overviewscript"></script>
+  <script>
+    function displayInfoFx() {
+      const fx = (document.MTIntelligenceAccounts || []).find(item => item.userid === "CQIPKZ");
+      if (!fx) return;
+      const pct = value => `${Number(value) >= 0 ? "+" : ""}${Number(value).toFixed(2)}%`;
+      document.getElementById("infoFxWeek").textContent = pct(fx.weeklyBankedGrowth);
+      document.getElementById("infoFxMonth").textContent = pct(fx.monthlyBankedGrowth);
+      document.getElementById("infoFxTotal").textContent = pct(fx.totalBankedGrowth);
+    }
+    function refreshInfoFx() {
+      document.MTIntelligenceAccounts = [];
+      const script = document.createElement("script");
+      script.src = `https://www.fxblue.com/users/CQIPKZ/overviewscript?t=${Date.now()}`;
+      script.onload = displayInfoFx;
+      document.head.appendChild(script);
+    }
+    displayInfoFx();
+    setInterval(refreshInfoFx, 60000);
+  </script>
+</body>
+</html>
