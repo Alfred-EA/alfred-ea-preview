@@ -13,7 +13,7 @@
     .live-strip{display:grid;grid-template-columns:auto repeat(3,1fr);align-items:center;background:linear-gradient(145deg,rgba(10,16,26,.06),rgba(7,11,18,.04));border:1px solid rgba(226,185,85,.48);border-radius:14px;margin-top:18px;padding:11px 18px;box-shadow:0 0 28px rgba(226,185,85,.08);backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px)}.live-title{color:var(--gold2);font:700 10px Cinzel;letter-spacing:.08em;padding-right:22px}.live-stat{padding:0 18px;border-left:1px solid rgba(226,185,85,.3)}.live-stat span{display:block;color:#8e8a82;font-size:8px;text-transform:uppercase}.live-stat strong{font-size:18px;color:var(--gold2)}
     main{padding:68px 0 85px}.eyebrow{color:var(--gold2);font:700 clamp(32px,5vw,48px) Cinzel;letter-spacing:.045em;text-transform:none;text-align:center}h1,h2{margin:0}h1{font-size:clamp(22px,3vw,31px);letter-spacing:-.025em;line-height:1.15;margin:13px 0;text-align:center}.lead{max-width:690px;color:var(--muted);line-height:1.7;font-size:15px;text-align:center;margin-left:auto;margin-right:auto}
     .selector{margin-top:35px;border:1px solid rgba(226,185,85,.24);border-radius:18px;background:linear-gradient(145deg,#0b121e,#080c13);padding:26px;display:grid;grid-template-columns:1fr auto;gap:28px;align-items:end}.selector label{display:block;color:#b8b4aa;font-size:12px;margin-bottom:9px}.selector input{width:100%;border:1px solid rgba(255,255,255,.14);border-radius:10px;padding:14px;background:#05080d;color:#fff;font:600 17px Manrope;-moz-appearance:textfield}.selector input::-webkit-inner-spin-button,.selector input::-webkit-outer-spin-button{-webkit-appearance:none}.recommend{min-width:230px}.recommend span{display:block;color:#85827c;font-size:9px;letter-spacing:.1em}.recommend strong{display:block;color:var(--gold2);font-size:21px;margin-top:5px}
-    .plans{display:grid;grid-template-columns:1fr 1fr;gap:11px;margin-top:20px}.plan{display:grid;grid-template-columns:85px 1fr auto;align-items:center;gap:16px;border:1px solid rgba(255,255,255,.075);border-radius:14px;background:#080c12;padding:17px 19px;cursor:default;user-select:none}.plan.active{border-color:var(--gold);background:linear-gradient(145deg,rgba(226,185,85,.1),#09101a);box-shadow:0 0 0 3px rgba(226,185,85,.055)}.info-note{margin:14px 0 0;color:#8d8982;font-size:12px;text-align:center}.level{color:var(--gold);font:700 11px Cinzel}.range{color:#aaa69e;font-size:12px}.price{text-align:right;font-size:12px;color:#8d8982}.price strong{font-size:21px;color:#f4f0e7}.price small{display:block}
+    .plans{display:grid;grid-template-columns:1fr 1fr;gap:11px;margin-top:20px}.plan{display:grid;grid-template-columns:85px 1fr auto;align-items:center;gap:16px;border:1px solid rgba(255,255,255,.075);border-radius:14px;background:#080c12;padding:17px 19px;cursor:pointer;user-select:none;transition:.2s}.plan:hover,.plan:focus-visible{border-color:rgba(226,185,85,.55);transform:translateY(-1px);outline:none}.plan.active{border-color:var(--gold);background:linear-gradient(145deg,rgba(226,185,85,.1),#09101a);box-shadow:0 0 0 3px rgba(226,185,85,.055)}.info-note{margin:14px 0 0;color:#8d8982;font-size:12px;text-align:center}.level{color:var(--gold);font:700 11px Cinzel}.range{color:#aaa69e;font-size:12px}.price{text-align:right;font-size:12px;color:#8d8982}.price strong{font-size:21px;color:#f4f0e7}.price small{display:block}
     .steps{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:52px}.step{border:1px solid rgba(255,255,255,.07);border-radius:15px;padding:22px;background:#080808}.step b{display:block;color:var(--gold2);font-size:14px;margin-bottom:8px}.step p{color:#96928a;font-size:12px;line-height:1.65;margin:0}
     .accept{display:flex;align-items:flex-start;gap:11px;margin-top:20px;border:1px solid rgba(226,185,85,.22);border-radius:13px;background:#080c12;padding:16px 18px;color:#c3beb4;font-size:12px;cursor:pointer}.accept input{width:18px;height:18px;margin:0;accent-color:var(--gold);flex:0 0 auto}.accept a{text-decoration:underline;color:var(--gold2)}.action{display:flex;align-items:center;justify-content:space-between;gap:25px;margin-top:12px;border-left:2px solid var(--gold);background:rgba(226,185,85,.06);padding:20px 24px}.action p{color:#aaa69d;font-size:12px;margin:0}.cta{white-space:nowrap;background:linear-gradient(135deg,#a97922,#efd071,#ae7d25);color:#171108;font-weight:800;font-size:13px;padding:12px 21px;border-radius:999px;transition:.2s}.cta.disabled{opacity:.35;filter:grayscale(.55);pointer-events:none}
     .fine{color:#706e69;font-size:10px;line-height:1.6;margin-top:23px}footer{border-top:1px solid rgba(255,255,255,.06);padding:28px 0;color:#66635e;font-size:11px}
@@ -26,15 +26,15 @@
   <main><div class="wrap">
     <div class="eyebrow">Abonnement mensuel</div>
     <h1>Un forfait adapté à votre compte.</h1>
-    <p class="lead">Les niveaux ci-dessous sont présentés à titre informatif. Entrez le montant souhaité pour afficher automatiquement le niveau correspondant.</p>
+    <p class="lead">Entrez le montant souhaité ou sélectionnez directement un niveau pour afficher le forfait correspondant.</p>
 
     <section class="selector">
-      <div><label for="accountValue">Valeur du compte (USD)</label><input id="accountValue" type="number" min="1000" step="1" value="3000" inputmode="decimal"></div>
+      <div><label for="accountValue">Valeur du compte (USD)</label><input id="accountValue" type="number" min="1100" step="1" value="3000" inputmode="decimal"></div>
       <div class="recommend"><span>FORFAIT CORRESPONDANT</span><strong id="recommended">Niveau 3 · 60 $/mois</strong></div>
     </section>
 
     <section class="plans" id="plans">
-      <article class="plan" data-min="1000" data-max="1999"><span class="level">NIVEAU 1</span><span class="range">1 000 à 1 999 $ USD</span><span class="price"><strong>25 $</strong><small>/ mois</small></span></article>
+      <article class="plan" data-min="1100" data-max="1999"><span class="level">NIVEAU 1</span><span class="range">1 100 à 1 999 $ USD</span><span class="price"><strong>25 $</strong><small>/ mois</small></span></article>
       <article class="plan" data-min="2000" data-max="2999"><span class="level">NIVEAU 2</span><span class="range">2 000 à 2 999 $ USD</span><span class="price"><strong>45 $</strong><small>/ mois</small></span></article>
       <article class="plan" data-min="3000" data-max="3999"><span class="level">NIVEAU 3</span><span class="range">3 000 à 3 999 $ USD</span><span class="price"><strong>60 $</strong><small>/ mois</small></span></article>
       <article class="plan" data-min="4000" data-max="4999"><span class="level">NIVEAU 4</span><span class="range">4 000 à 4 999 $ USD</span><span class="price"><strong>85 $</strong><small>/ mois</small></span></article>
@@ -46,7 +46,7 @@
       <article class="plan" data-min="13000" data-max="16999"><span class="level">NIVEAU 10</span><span class="range">13 000 à 16 999 $ USD</span><span class="price"><strong>205 $</strong><small>/ mois</small></span></article>
       <article class="plan" data-min="17000" data-max="999999999"><span class="level">NIVEAU X</span><span class="range">17 000 $ USD et plus</span><span class="price"><strong>Sur mesure</strong><small>Contactez-nous</small></span></article>
     </section>
-    <p class="info-note">Les niveaux sont informatifs et ne peuvent pas être sélectionnés manuellement.</p>
+    <p class="info-note">Cliquez sur un niveau pour utiliser automatiquement son montant minimum.</p>
 
     <section class="steps">
       <article class="step"><b>1. Configurer le robot</b><p>Complétez l’installation et vérifiez qu’une transaction s’exécute correctement.</p></article>
@@ -71,9 +71,25 @@
         if (active) selected = card;
       });
       const name = selected?.querySelector(".level").textContent;
-      document.getElementById("recommended").textContent = name ? `${name} · ${prices[name]}` : "Minimum : 1 000 $ USD";
+      document.getElementById("recommended").textContent = name ? `${name} · ${prices[name]}` : "Minimum : 1 100 $ USD";
     }
     input.addEventListener("input", selectPlan);
+    planCards.forEach(card => {
+      card.setAttribute("role", "button");
+      card.setAttribute("tabindex", "0");
+      const choose = () => {
+        input.value = card.dataset.min;
+        selectPlan();
+        card.scrollIntoView({behavior:"smooth", block:"center"});
+      };
+      card.addEventListener("click", choose);
+      card.addEventListener("keydown", event => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          choose();
+        }
+      });
+    });
     selectPlan();
     function displayFx() {
       const fx = (document.MTIntelligenceAccounts || []).find(item => item.userid === "CQIPKZ"); if (!fx) return;
