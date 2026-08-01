@@ -167,7 +167,30 @@
       continueButton.textContent = step === 3 ? "Confirmer ✓" : "Continuer →";
       continueButton.disabled = step === 1 ? hasExisting === null || (hasExisting && existingBrokers.length === 0) : step === 2;
     }
-    continueButton.addEventListener("click", () => {
+    async function sendBrokerSelection() {
+      const payload = {
+        _subject: "Nouvelle sélection — Compte courtier Alfred-EA",
+        _template: "table",
+        "Compte courtier existant": hasExisting ? "Oui" : "Non",
+        "Courtiers actuels": hasExisting ? existingBrokers.map(([, name]) => name).join(", ") : "Aucun",
+        "Courtiers souhaités": noPreference ? "Aucune préférence" : preferredBrokers.map(([, name]) => name).join(", "),
+        "Date de soumission": new Date().toLocaleString("fr-CA", { timeZone: "America/Toronto" }),
+        "Page": location.href
+      };
+      const response = await fetch("https://formsubmit.co/ajax/alfred.expert.advisor@gmail.com", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Accept": "application/json"
+        },
+        body: JSON.stringify(payload)
+      });
+      const result = await response.json();
+      if (!response.ok || result.success === false) {
+        throw new Error(result.message || "Échec de l’envoi");
+      }
+    }
+    continueButton.addEventListener("click", async () => {
       if (currentStep === 1) {
         document.querySelectorAll("#preferenceChoices .choice").forEach(button => button.classList.toggle("hidden-broker", existingBrokers.some(([id]) => id === button.dataset.broker)));
         preferredBrokers = [];
@@ -181,7 +204,17 @@
         showStep(3);
         continueButton.disabled = false;
       } else {
-        continueButton.textContent = "Choix enregistrés ✓";
+        continueButton.disabled = true;
+        continueButton.textContent = "Envoi en cours…";
+        try {
+          await sendBrokerSelection();
+          continueButton.textContent = "Choix envoyés ✓";
+        } catch (error) {
+          console.error("Envoi de la sélection impossible", error);
+          continueButton.textContent = "Réessayer l’envoi";
+          continueButton.disabled = false;
+          alert("L’envoi n’a pas fonctionné. Veuillez réessayer.");
+        }
       }
     });
     backButton.addEventListener("click", () => {
