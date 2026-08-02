@@ -1,5 +1,5 @@
 (() => {
-  const sb = window.supabase.createClient('https://lstjmanxzpsnuxonspfc.supabase.co', 'sb_publishable_ltaNA7nnVozoSCOcZIjg');
+  const sb = window.supabase.createClient('https://lstjmanxzpsnuxonspfc.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxzdGptYW54enBzbnV4b25zcGZjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU2NzAxNjMsImV4cCI6MjEwMTI0NjE2M30.BVjCyTVWsODT6cpRKCSak5PI5a_4uhxifHP5z_ScqO8');
   const status = document.getElementById('status');
   const grid = document.getElementById('adminGrid');
   const clients = document.getElementById('clients');

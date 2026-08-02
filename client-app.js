@@ -1,6 +1,6 @@
 (() => {
   const PROJECT_URL = 'https://lstjmanxzpsnuxonspfc.supabase.co';
-  const PUBLISHABLE_KEY = 'sb_publishable_ltaNA7nnVozoSCOcZIjg';
+  const PUBLISHABLE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxzdGptYW54enBzbnV4b25zcGZjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU2NzAxNjMsImV4cCI6MjEwMTI0NjE2M30.BVjCyTVWsODT6cpRKCSak5PI5a_4uhxifHP5z_ScqO8';
   const sb = window.supabase.createClient(PROJECT_URL, PUBLISHABLE_KEY);
   const loginForm = document.getElementById('loginForm');
   const signupForm = document.getElementById('signupForm');
