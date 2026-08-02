@@ -18,6 +18,7 @@
     .secure-sections{display:grid;gap:14px;margin-top:14px}.secure-form{display:grid;gap:14px}.security-note{color:var(--muted);font-size:11px;margin:-5px 0 4px}.mt5-row{display:grid;grid-template-columns:60px 1fr 1fr 1fr;gap:10px;align-items:end;padding:14px 0;border-top:1px solid rgba(255,255,255,.07)}.mt5-row:first-child{border-top:0}.mt5-slot{color:var(--gold2);font-weight:800;padding-bottom:12px}.compact-field{display:grid;gap:6px}.compact-field label{font-size:10px;color:#cfcac0}.secure-form input,.secure-form select{width:100%;border:1px solid rgba(255,255,255,.1);background:#050b14;color:var(--text);border-radius:11px;padding:12px;font:inherit}.upload-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.upload-box{display:grid;gap:9px;padding:17px;border:1px dashed rgba(219,180,83,.45);border-radius:13px;background:rgba(219,180,83,.035)}.upload-box label{color:var(--gold2);font-size:12px;font-weight:800}.form-feedback{min-height:18px;color:var(--gold2);font-size:11px;margin:0}
     @media(max-width:900px){.mt5-row{grid-template-columns:1fr 1fr}.mt5-slot{grid-column:1/-1;padding-bottom:0}.upload-grid{grid-template-columns:1fr}}
     @media(min-width:901px){.mt5-row{grid-template-columns:60px repeat(4,1fr)}}.document-delete{justify-self:start;border:1px solid rgba(255,120,120,.4);background:transparent;color:#ffaaaa;border-radius:999px;padding:6px 11px;margin-top:6px;cursor:pointer}.document-delete:disabled{opacity:.5}
+    .ea-performance{display:grid;grid-template-columns:1.25fr repeat(3,1fr);align-items:center;gap:10px;margin-top:14px;padding:16px 20px;border:1px solid var(--line);border-radius:16px;background:linear-gradient(135deg,rgba(219,180,83,.08),#080d15)}.performance-title{color:var(--gold);font-size:10px;letter-spacing:.16em;font-weight:800}.performance-stat{display:grid;gap:4px;text-align:center}.performance-stat span{color:var(--muted);font-size:10px}.performance-stat strong{color:var(--gold2);font-size:18px}@media(max-width:700px){.ea-performance{grid-template-columns:1fr}.performance-title{text-align:center}.performance-stat{grid-template-columns:1fr 1fr;text-align:left}.performance-stat strong{text-align:right}}
   </style>
 </head>
 <body>
@@ -35,8 +36,9 @@
     loginTab.addEventListener('click',()=>showAuth('login'));signupTab.addEventListener('click',()=>showAuth('signup'));
     const menuToggle=document.getElementById('menuToggle'),mobileNavigation=document.getElementById('mobileNavigation');menuToggle.addEventListener('click',()=>{const open=mobileNavigation.classList.toggle('open');menuToggle.setAttribute('aria-expanded',String(open))});
   </script>
+<script src="https://www.fxblue.com/users/CQIPKZ/overviewscript"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="client-app.js?v=10"></script>
+<script src="client-app.js?v=11"></script>
 <script src="client-nav.js?v=6"></script>
 </body>
 </html>

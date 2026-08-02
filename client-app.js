@@ -31,6 +31,7 @@
       <article class="dashboard-card"><span>FACTURES</span><strong id="invoiceCount">0</strong><p>Documents disponibles</p></article>
       <article class="dashboard-card"><span>DOCUMENTS</span><strong id="documentCount">0</strong><p>Fichiers privés</p></article>
     </div>
+    <div class="ea-performance"><div class="performance-title">PERFORMANCE EA LIVE</div><div class="performance-stat"><span>Semaine</span><strong id="clientFxWeek">--</strong></div><div class="performance-stat"><span>Mois</span><strong id="clientFxMonth">--</strong></div><div class="performance-stat"><span>Depuis ouverture</span><strong id="clientFxTotal">--</strong></div></div>
     <div class="dashboard-columns">
       <article class="dashboard-panel"><h2>Messages privés</h2><div class="message-list" id="messageList"><p>Aucun message.</p></div><form id="messageForm" class="message-form"><textarea id="messageBody" maxlength="5000" placeholder="Écrire un message à Alfred-EA" required></textarea><button class="submit" type="submit">Envoyer</button></form></article>
       <article class="dashboard-panel"><h2>Mes factures</h2><div id="invoiceList"><p>Aucune facture disponible.</p></div><h2 class="section-space">Mes documents</h2><div id="documentList"><p>Aucun document disponible.</p></div></article>
@@ -40,6 +41,24 @@
       <article class="dashboard-panel"><h2>Permis de conduire</h2><p class="security-note">Téléversement privé — JPG, PNG, WebP ou PDF, maximum 10 Mo par fichier.</p><form id="licenseForm" class="secure-form"><div class="upload-grid"><div class="upload-box"><label for="licenseFront">Recto du permis</label><input id="licenseFront" type="file" accept="image/jpeg,image/png,image/webp,application/pdf" required></div><div class="upload-box"><label for="licenseBack">Verso du permis</label><input id="licenseBack" type="file" accept="image/jpeg,image/png,image/webp,application/pdf" required></div></div><button class="submit" type="submit">Enregistrer mon permis</button><p class="form-feedback" id="licenseStatus" role="status"></p></form></article>
     </div>`;
   document.querySelector('.page').appendChild(dashboard);
+
+  function displayClientFx() {
+    const account = (document.MTIntelligenceAccounts || []).find(item => item.userid === 'CQIPKZ');
+    if (!account) return;
+    const percent = value => `${Number(value) >= 0 ? '+' : ''}${Number(value).toFixed(2)}%`;
+    document.getElementById('clientFxWeek').textContent = percent(account.weeklyBankedGrowth);
+    document.getElementById('clientFxMonth').textContent = percent(account.monthlyBankedGrowth);
+    document.getElementById('clientFxTotal').textContent = percent(account.totalBankedGrowth);
+  }
+  function refreshClientFx() {
+    const script = document.createElement('script');
+    script.src = `https://www.fxblue.com/users/CQIPKZ/overviewscript?t=${Date.now()}`;
+    script.onload = displayClientFx;
+    document.head.appendChild(script);
+  }
+  displayClientFx();
+  setTimeout(displayClientFx, 800);
+  setInterval(refreshClientFx, 60000);
 
   const brokers = ['Choisir un courtier', 'STARTRADER', 'Vantage Markets (USA only)', 'PU Prime', 'Axi', 'VT Markets', 'Ultima Markets'];
   const mt5Rows = document.getElementById('mt5Rows');
