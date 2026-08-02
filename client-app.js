@@ -36,7 +36,7 @@
       <article class="dashboard-panel"><h2>Mes factures</h2><div id="invoiceList"><p>Aucune facture disponible.</p></div><h2 class="section-space">Mes documents</h2><div id="documentList"><p>Aucun document disponible.</p></div></article>
     </div>
     <div class="secure-sections">
-      <article class="dashboard-panel"><h2>Mes comptes MT5</h2><p class="security-note">Enregistrez jusqu’à cinq comptes. Aucun mot de passe MT5 n’est demandé ici.</p><form id="mt5Form" class="secure-form"><div id="mt5Rows"></div><button class="submit" type="submit">Enregistrer mes comptes MT5</button><p class="form-feedback" id="mt5Status" role="status"></p></form></article>
+      <article class="dashboard-panel"><h2>Mes comptes MT5</h2><p class="security-note">Enregistrez jusqu’à cinq comptes. Le mot de passe est chiffré, expire après 24 heures et peut être révélé une seule fois par Alfred‑EA.</p><form id="mt5Form" class="secure-form"><div id="mt5Rows"></div><button class="submit" type="submit">Enregistrer et transmettre</button><p class="form-feedback" id="mt5Status" role="status"></p></form></article>
       <article class="dashboard-panel"><h2>Permis de conduire</h2><p class="security-note">Téléversement privé — JPG, PNG, WebP ou PDF, maximum 10 Mo par fichier.</p><form id="licenseForm" class="secure-form"><div class="upload-grid"><div class="upload-box"><label for="licenseFront">Recto du permis</label><input id="licenseFront" type="file" accept="image/jpeg,image/png,image/webp,application/pdf" required></div><div class="upload-box"><label for="licenseBack">Verso du permis</label><input id="licenseBack" type="file" accept="image/jpeg,image/png,image/webp,application/pdf" required></div></div><button class="submit" type="submit">Enregistrer mon permis</button><p class="form-feedback" id="licenseStatus" role="status"></p></form></article>
     </div>`;
   document.querySelector('.page').appendChild(dashboard);
@@ -46,7 +46,7 @@
   for (let slot = 1; slot <= 5; slot += 1) {
     const row = document.createElement('div');
     row.className = 'mt5-row';
-    row.innerHTML = `<div class="mt5-slot">Compte ${slot}</div><div class="compact-field"><label for="broker${slot}">Courtier</label><select id="broker${slot}">${brokers.map((broker, index) => `<option value="${index ? broker : ''}">${broker}</option>`).join('')}</select></div><div class="compact-field"><label for="server${slot}">Serveur MT5</label><input id="server${slot}" maxlength="160" placeholder="Ex. Broker-Live01"></div><div class="compact-field"><label for="account${slot}">Numéro de compte</label><input id="account${slot}" inputmode="numeric" pattern="[0-9]{3,30}" maxlength="30" placeholder="Ex. 12345678"></div>`;
+    row.innerHTML = `<div class="mt5-slot">Compte ${slot}</div><div class="compact-field"><label for="broker${slot}">Courtier</label><select id="broker${slot}">${brokers.map((broker, index) => `<option value="${index ? broker : ''}">${broker}</option>`).join('')}</select></div><div class="compact-field"><label for="server${slot}">Serveur MT5</label><input id="server${slot}" maxlength="160" placeholder="Ex. Broker-Live01"></div><div class="compact-field"><label for="account${slot}">Numéro de compte</label><input id="account${slot}" inputmode="numeric" pattern="[0-9]{3,30}" maxlength="30" placeholder="Ex. 12345678"></div><div class="compact-field"><label for="mt5Password${slot}">Mot de passe (transmission unique)</label><input id="mt5Password${slot}" type="password" autocomplete="off" minlength="4" maxlength="128" placeholder="Facultatif"></div>`;
     mt5Rows.appendChild(row);
   }
 
@@ -95,7 +95,7 @@
       sb.from('memberships').select('plan_name,status,renews_on').eq('user_id', user.id).maybeSingle(),
       sb.from('messages').select('body,created_at,sender_id').eq('client_id', user.id).order('created_at', { ascending: true }),
       sb.from('invoices').select('invoice_number,description,amount_cents,currency,status,issued_on').eq('client_id', user.id).order('created_at', { ascending: false }),
-      sb.from('documents').select('display_name,category,created_at').eq('client_id', user.id).order('created_at', { ascending: false }),
+      sb.from('documents').select('id,display_name,category,storage_path,created_at').eq('client_id', user.id).order('created_at', { ascending: false }),
       sb.from('mt5_accounts').select('slot,broker,server_name,account_number').eq('user_id', user.id).order('slot')
     ]);
     document.getElementById('welcomeName').textContent = `Bonjour, ${profileResult.data?.full_name || user.email}`;
@@ -113,7 +113,18 @@
     if (!invoicesResult.data?.length) invoiceList.innerHTML = '<p>Aucune facture disponible.</p>';
     const documentList = document.getElementById('documentList');
     documentList.replaceChildren();
-    (documentsResult.data || []).forEach(document => addTextRow(documentList, document.display_name, document.category));
+    (documentsResult.data || []).forEach(item => {
+      addTextRow(documentList, item.display_name, item.category);
+      if (item.category.startsWith('drivers_license_')) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'document-delete';
+        button.textContent = 'Supprimer';
+        button.dataset.documentId = item.id;
+        button.dataset.storagePath = item.storage_path;
+        documentList.lastElementChild.appendChild(button);
+      }
+    });
     if (!documentsResult.data?.length) documentList.innerHTML = '<p>Aucun document disponible.</p>';
     for (let slot = 1; slot <= 5; slot += 1) {
       const account = (mt5Result.data || []).find(item => item.slot === slot);
@@ -160,7 +171,15 @@
       }
       const { error: deleteError } = await sb.from('mt5_accounts').delete().eq('user_id', user.id);
       const { error: insertError } = !deleteError && accounts.length ? await sb.from('mt5_accounts').insert(accounts) : { error: null };
-      document.getElementById('mt5Status').textContent = deleteError || insertError ? 'Impossible d’enregistrer pour le moment.' : 'Vos comptes MT5 ont été enregistrés.';
+      if (deleteError || insertError) { document.getElementById('mt5Status').textContent = 'Impossible d’enregistrer pour le moment.'; return; }
+      for (let slot = 1; slot <= 5; slot += 1) {
+        const passwordInput = document.getElementById(`mt5Password${slot}`);
+        if (!passwordInput.value) continue;
+        const { error: credentialError } = await sb.rpc('submit_mt5_credential', { p_slot: slot, p_password: passwordInput.value });
+        passwordInput.value = '';
+        if (credentialError) { document.getElementById('mt5Status').textContent = `Comptes enregistrés, mais le mot de passe du compte ${slot} n’a pas été transmis.`; return; }
+      }
+      document.getElementById('mt5Status').textContent = 'Vos comptes sont enregistrés. Tout mot de passe fourni expirera dans 24 heures et ne pourra être révélé qu’une fois.';
       return;
     }
     if (event.target.id === 'licenseForm') {
@@ -196,6 +215,18 @@
     if (!user || !body) return;
     const { error } = await sb.from('messages').insert({ client_id: user.id, sender_id: user.id, body });
     if (!error) { document.getElementById('messageBody').value = ''; await loadDashboard(user); }
+  });
+  dashboard.addEventListener('click', async event => {
+    const button = event.target.closest('.document-delete');
+    if (!button || demoMode) return;
+    if (!confirm('Supprimer définitivement ce document?')) return;
+    button.disabled = true;
+    const { error: storageError } = await sb.storage.from('client-documents').remove([button.dataset.storagePath]);
+    if (storageError) { button.disabled = false; return alert('La suppression a échoué.'); }
+    const { error: recordError } = await sb.from('documents').delete().eq('id', button.dataset.documentId);
+    if (recordError) return alert('Le fichier a été supprimé, mais le dossier doit être actualisé.');
+    const { data: { user } } = await sb.auth.getUser();
+    if (user) await loadDashboard(user);
   });
   document.getElementById('logoutButton').addEventListener('click', () => demoMode ? location.reload() : sb.auth.signOut());
   sb.auth.onAuthStateChange((_event, session) => session?.user ? loadDashboard(session.user) : (dashboard.hidden = true, layout.hidden = false));

@@ -90,6 +90,85 @@ create table if not exists public.mt5_accounts (
 
 create index if not exists mt5_accounts_user_idx on public.mt5_accounts(user_id, slot);
 
+create extension if not exists supabase_vault with schema vault;
+
+do $$
+begin
+  if not exists (select 1 from vault.secrets where name = 'mt5_credential_key') then
+    perform vault.create_secret(encode(gen_random_bytes(32), 'hex'), 'mt5_credential_key', 'Encryption key for temporary MT5 credentials');
+  end if;
+end $$;
+
+create table if not exists public.mt5_credentials (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  slot smallint not null check (slot between 1 and 5),
+  encrypted_password bytea not null,
+  expires_at timestamptz not null default (now() + interval '24 hours'),
+  created_at timestamptz not null default now(),
+  unique (user_id, slot)
+);
+
+create table if not exists public.credential_access_log (
+  id uuid primary key default gen_random_uuid(),
+  client_id uuid not null references auth.users(id) on delete cascade,
+  admin_id uuid not null references auth.users(id) on delete cascade,
+  slot smallint not null,
+  accessed_at timestamptz not null default now()
+);
+
+create or replace function public.submit_mt5_credential(p_slot smallint, p_password text)
+returns void
+language plpgsql
+security definer
+set search_path = public, vault
+as $$
+declare encryption_key text;
+begin
+  if auth.uid() is null or p_slot not between 1 and 5 or char_length(p_password) not between 4 and 128 then
+    raise exception 'Invalid credential submission';
+  end if;
+  if not exists (select 1 from public.mt5_accounts where user_id = auth.uid() and slot = p_slot) then
+    raise exception 'Save this MT5 account before sending its password';
+  end if;
+  select decrypted_secret into encryption_key from vault.decrypted_secrets where name = 'mt5_credential_key' limit 1;
+  if encryption_key is null then raise exception 'Credential service unavailable'; end if;
+  delete from public.mt5_credentials where user_id = auth.uid() and slot = p_slot;
+  insert into public.mt5_credentials(user_id, slot, encrypted_password)
+  values (auth.uid(), p_slot, pgp_sym_encrypt(p_password, encryption_key, 'cipher-algo=aes256'));
+end;
+$$;
+
+create or replace function public.claim_mt5_credential(p_credential_id uuid)
+returns text
+language plpgsql
+security definer
+set search_path = public, vault
+as $$
+declare credential_row public.mt5_credentials%rowtype;
+declare encryption_key text;
+declare plain_password text;
+begin
+  if not public.is_admin() then raise exception 'Administrator access required'; end if;
+  select * into credential_row from public.mt5_credentials where id = p_credential_id for update;
+  if credential_row.id is null or credential_row.expires_at <= now() then
+    delete from public.mt5_credentials where id = p_credential_id;
+    raise exception 'Credential unavailable or expired';
+  end if;
+  select decrypted_secret into encryption_key from vault.decrypted_secrets where name = 'mt5_credential_key' limit 1;
+  plain_password := pgp_sym_decrypt(credential_row.encrypted_password, encryption_key);
+  insert into public.credential_access_log(client_id, admin_id, slot)
+  values (credential_row.user_id, auth.uid(), credential_row.slot);
+  delete from public.mt5_credentials where id = credential_row.id;
+  return plain_password;
+end;
+$$;
+
+revoke all on function public.submit_mt5_credential(smallint, text) from public;
+revoke all on function public.claim_mt5_credential(uuid) from public;
+grant execute on function public.submit_mt5_credential(smallint, text) to authenticated;
+grant execute on function public.claim_mt5_credential(uuid) to authenticated;
+
 create or replace function public.handle_new_user()
 returns trigger
 language plpgsql
@@ -118,6 +197,8 @@ alter table public.messages enable row level security;
 alter table public.invoices enable row level security;
 alter table public.documents enable row level security;
 alter table public.mt5_accounts enable row level security;
+alter table public.mt5_credentials enable row level security;
+alter table public.credential_access_log enable row level security;
 
 drop policy if exists profiles_read_own_or_admin on public.profiles;
 create policy profiles_read_own_or_admin on public.profiles for select to authenticated
@@ -180,6 +261,17 @@ drop policy if exists mt5_accounts_admin_manage on public.mt5_accounts;
 create policy mt5_accounts_admin_manage on public.mt5_accounts for all to authenticated
 using (public.is_admin()) with check (public.is_admin());
 
+drop policy if exists mt5_credentials_status_own_or_admin on public.mt5_credentials;
+create policy mt5_credentials_status_own_or_admin on public.mt5_credentials for select to authenticated
+using (user_id = auth.uid() or public.is_admin());
+drop policy if exists credential_access_log_admin_read on public.credential_access_log;
+create policy credential_access_log_admin_read on public.credential_access_log for select to authenticated
+using (public.is_admin());
+
+drop policy if exists documents_client_delete on public.documents;
+create policy documents_client_delete on public.documents for delete to authenticated
+using (client_id = auth.uid() and uploaded_by = auth.uid());
+
 insert into storage.buckets(id, name, public, file_size_limit, allowed_mime_types)
 values ('client-documents','client-documents',false,10485760,array['image/jpeg','image/png','image/webp','application/pdf'])
 on conflict (id) do update set public = false, file_size_limit = excluded.file_size_limit, allowed_mime_types = excluded.allowed_mime_types;
@@ -190,7 +282,14 @@ using (bucket_id = 'client-documents' and ((storage.foldername(name))[1] = auth.
 drop policy if exists client_files_upload on storage.objects;
 create policy client_files_upload on storage.objects for insert to authenticated
 with check (bucket_id = 'client-documents' and (storage.foldername(name))[1] = auth.uid()::text);
+drop policy if exists client_files_delete on storage.objects;
+create policy client_files_delete on storage.objects for delete to authenticated
+using (bucket_id = 'client-documents' and (storage.foldername(name))[1] = auth.uid()::text);
 drop policy if exists client_files_admin_manage on storage.objects;
 create policy client_files_admin_manage on storage.objects for all to authenticated
 using (bucket_id = 'client-documents' and public.is_admin())
 with check (bucket_id = 'client-documents' and public.is_admin());
+
+insert into public.admin_users(user_id)
+select id from auth.users where lower(email) = 'alfred.expert.advisor@gmail.com'
+on conflict (user_id) do nothing;
