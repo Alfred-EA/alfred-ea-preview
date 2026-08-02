@@ -238,6 +238,11 @@
     if (user) await loadDashboard(user);
   });
   document.getElementById('logoutButton').addEventListener('click', () => demoMode ? location.reload() : sb.auth.signOut());
-  sb.auth.onAuthStateChange((_event, session) => session?.user ? loadDashboard(session.user) : (dashboard.hidden = true, layout.hidden = false));
-  sb.auth.getSession().then(({ data }) => data.session?.user && loadDashboard(data.session.user));
+  async function routeSignedInUser(user) {
+    const {data:admin} = await sb.from('admin_users').select('user_id').eq('user_id', user.id).maybeSingle();
+    if (admin) { location.replace('admin.html'); return; }
+    await loadDashboard(user);
+  }
+  sb.auth.onAuthStateChange((_event, session) => session?.user ? routeSignedInUser(session.user) : (dashboard.hidden = true, layout.hidden = false));
+  sb.auth.getSession().then(({ data }) => data.session?.user && routeSignedInUser(data.session.user));
 })();
