@@ -4,7 +4,6 @@
   const grid = document.getElementById('adminGrid');
   const clients = document.getElementById('clients');
   const details = document.getElementById('clientDetails');
-  let clearTimer;
 
   const row = (title, subtitle, actions = '') => `<div class="row"><strong>${escapeHtml(title)}</strong><small>${escapeHtml(subtitle || '')}</small>${actions}</div>`;
   const escapeHtml = value => String(value || '').replace(/[&<>'"]/g, character => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[character]));
@@ -15,7 +14,7 @@
       <p class="muted">DOSSIER DE DÉMONSTRATION · AUCUNE DONNÉE RÉELLE</p>
       <div class="section"><h2>Abonnement</h2>${row('Niveau 3', 'Actif · Renouvellement le 15 septembre 2026')}</div>
       <div class="section"><h2>Comptes MT5</h2>
-        ${row('Compte 1 · STARTRADER', '12345678 · STARTRADER-Live', '<div class="actions"><button class="button demo-reveal">Simuler la révélation unique</button></div>')}
+        ${row('Compte 1 · STARTRADER', '12345678 · STARTRADER-Live', '<div class="actions"><button class="button demo-reveal">Simuler l’accès administrateur</button></div>')}
         ${row('Compte 2 · Vantage Markets (USA only)', '87654321 · VantageInternational-Live', '<small>Aucun mot de passe temporaire disponible</small>')}
       </div>
       <div class="section"><h2>Documents privés</h2>
@@ -36,7 +35,7 @@
     let html = `<p class="muted">Dossier ${escapeHtml(client.id)}</p><div class="section"><h2>Abonnement</h2>${row(membership.data?.plan_name || 'À confirmer', membership.data?.status || 'En attente')}</div><div class="section"><h2>Comptes MT5</h2>`;
     html += (accounts.data || []).map(account => {
       const credential = (credentials.data || []).find(item => item.slot === account.slot);
-      const action = credential ? `<div class="actions"><button class="button reveal" data-id="${credential.id}">Révéler une fois · expire ${new Date(credential.expires_at).toLocaleString('fr-CA')}</button></div>` : '<small>Aucun mot de passe temporaire disponible</small>';
+      const action = credential ? `<div class="actions"><button class="button reveal" data-id="${credential.id}">Accéder avec mon mot de passe administrateur · expire ${new Date(credential.expires_at).toLocaleString('fr-CA')}</button></div>` : '<small>Aucun mot de passe temporaire disponible</small>';
       return row(`Compte ${account.slot} · ${account.broker}`, `${account.account_number} · ${account.server_name || 'Serveur non indiqué'}`, action);
     }).join('') || '<p class="muted">Aucun compte enregistré.</p>';
     html += '</div><div class="section"><h2>Documents privés</h2>';
@@ -60,24 +59,33 @@
   details.addEventListener('click', async event => {
     const demoReveal = event.target.closest('.demo-reveal');
     if (demoReveal) {
-      const box=document.getElementById('secretBox'); document.getElementById('revealedSecret').value='DEMO-ONLY-NOT-A-REAL-PASSWORD'; box.hidden=false;
-      clearTimeout(clearTimer); clearTimer=setTimeout(clearSecret,120000); demoReveal.remove(); return;
+      const accountRow=demoReveal.closest('.row');
+      demoReveal.closest('.actions').innerHTML='<div class="account-secret"><strong>Compte 1 · Mot de passe MT5</strong><input type="text" value="DEMO-ONLY-NOT-A-REAL-PASSWORD" readonly><small>Démonstration seulement · attaché au Compte 1</small></div>';
+      setTimeout(()=>{const secret=accountRow.querySelector('.account-secret');if(secret)secret.remove();},120000); return;
     }
     const reveal = event.target.closest('.reveal');
     if (reveal) {
-      if (!confirm('Ce mot de passe sera supprimé du serveur immédiatement et ne pourra plus être révélé. Continuer?')) return;
-      reveal.disabled = true;
-      const {data, error} = await sb.rpc('claim_mt5_credential', {p_credential_id: reveal.dataset.id});
-      if (error) { alert('Ce mot de passe est expiré ou déjà consulté.'); return; }
-      const box=document.getElementById('secretBox'); document.getElementById('revealedSecret').value=data; box.hidden=false;
-      clearTimeout(clearTimer); clearTimer=setTimeout(clearSecret,120000); reveal.remove();
+      const actions=reveal.closest('.actions');
+      actions.innerHTML=`<form class="credential-gate" data-id="${reveal.dataset.id}"><label>Mot de passe de votre compte administrateur</label><input type="password" autocomplete="current-password" required><button class="button" type="submit">Vérifier et afficher pour ce compte</button><p class="muted gate-status"></p></form>`;
     }
     const open = event.target.closest('.open-document');
     if (open) { const {data,error}=await sb.storage.from('client-documents').createSignedUrl(open.dataset.path,300); if(error) alert('Document inaccessible.'); else window.open(data.signedUrl,'_blank','noopener'); }
   });
-  function clearSecret(){document.getElementById('revealedSecret').value='';document.getElementById('secretBox').hidden=true;}
-  document.getElementById('copySecret').addEventListener('click',()=>navigator.clipboard.writeText(document.getElementById('revealedSecret').value));
-  document.getElementById('clearSecret').addEventListener('click',clearSecret);
+  details.addEventListener('submit', async event => {
+    const gate=event.target.closest('.credential-gate');
+    if(!gate) return;
+    event.preventDefault();
+    const submit=gate.querySelector('button'); const feedback=gate.querySelector('.gate-status'); const password=gate.querySelector('input').value;
+    submit.disabled=true; feedback.textContent='Vérification…';
+    const {data:{user}}=await sb.auth.getUser();
+    const {error:authError}=await sb.auth.signInWithPassword({email:user.email,password});
+    if(authError){feedback.textContent='Mot de passe administrateur incorrect.';submit.disabled=false;return;}
+    const {data,error}=await sb.rpc('reveal_mt5_credential',{p_credential_id:gate.dataset.id});
+    if(error){feedback.textContent='Ce mot de passe MT5 est indisponible ou expiré.';submit.disabled=false;return;}
+    gate.innerHTML=`<div class="account-secret"><strong>Mot de passe MT5 de ce compte</strong><input type="text" value="${escapeHtml(data)}" readonly><button class="button copy-account-secret" type="button">Copier</button><small>Consultation journalisée · effacement de l’écran dans deux minutes</small></div>`;
+    const accountSecret=gate.querySelector('.account-secret'); setTimeout(()=>{if(accountSecret)accountSecret.remove();},120000);
+  });
+  details.addEventListener('click',event=>{const copy=event.target.closest('.copy-account-secret');if(copy)navigator.clipboard.writeText(copy.closest('.account-secret').querySelector('input').value);});
   document.getElementById('logout').addEventListener('click',async()=>{await sb.auth.signOut();location.href='client-space.html';});
   init();
 })();

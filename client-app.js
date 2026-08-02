@@ -36,7 +36,7 @@
       <article class="dashboard-panel"><h2>Mes factures</h2><div id="invoiceList"><p>Aucune facture disponible.</p></div><h2 class="section-space">Mes documents</h2><div id="documentList"><p>Aucun document disponible.</p></div></article>
     </div>
     <div class="secure-sections">
-      <article class="dashboard-panel"><h2>Mes comptes MT5</h2><p class="security-note">Enregistrez jusqu’à cinq comptes. Le mot de passe est chiffré, expire après 24 heures et peut être révélé une seule fois par Alfred‑EA.</p><form id="mt5Form" class="secure-form"><div id="mt5Rows"></div><button class="submit" type="submit">Enregistrer et transmettre</button><p class="form-feedback" id="mt5Status" role="status"></p></form></article>
+      <article class="dashboard-panel"><h2>Mes comptes MT5</h2><p class="security-note">Enregistrez jusqu’à cinq comptes. Le mot de passe est chiffré, expire après 24 heures et chaque consultation exige une nouvelle authentification administrateur.</p><form id="mt5Form" class="secure-form"><div id="mt5Rows"></div><button class="submit" type="submit">Enregistrer et transmettre</button><p class="form-feedback" id="mt5Status" role="status"></p></form></article>
       <article class="dashboard-panel"><h2>Permis de conduire</h2><p class="security-note">Téléversement privé — JPG, PNG, WebP ou PDF, maximum 10 Mo par fichier.</p><form id="licenseForm" class="secure-form"><div class="upload-grid"><div class="upload-box"><label for="licenseFront">Recto du permis</label><input id="licenseFront" type="file" accept="image/jpeg,image/png,image/webp,application/pdf" required></div><div class="upload-box"><label for="licenseBack">Verso du permis</label><input id="licenseBack" type="file" accept="image/jpeg,image/png,image/webp,application/pdf" required></div></div><button class="submit" type="submit">Enregistrer mon permis</button><p class="form-feedback" id="licenseStatus" role="status"></p></form></article>
     </div>`;
   document.querySelector('.page').appendChild(dashboard);
@@ -188,7 +188,7 @@
         passwordInput.value = '';
         if (credentialError) { document.getElementById('mt5Status').textContent = `Comptes enregistrés, mais le mot de passe du compte ${slot} n’a pas été transmis.`; return; }
       }
-      document.getElementById('mt5Status').textContent = 'Vos comptes sont enregistrés. Tout mot de passe fourni expirera dans 24 heures et ne pourra être révélé qu’une fois.';
+      document.getElementById('mt5Status').textContent = 'Vos comptes sont enregistrés. Tout mot de passe fourni expirera dans 24 heures et chaque consultation administrateur sera vérifiée et journalisée.';
       return;
     }
     if (event.target.id === 'licenseForm') {

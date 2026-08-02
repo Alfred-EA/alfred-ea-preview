@@ -164,10 +164,34 @@ begin
 end;
 $$;
 
+create or replace function public.reveal_mt5_credential(p_credential_id uuid)
+returns text
+language plpgsql
+security definer
+set search_path = public, vault
+as $$
+declare credential_row public.mt5_credentials%rowtype;
+declare encryption_key text;
+begin
+  if not public.is_admin() then raise exception 'Administrator access required'; end if;
+  select * into credential_row from public.mt5_credentials where id = p_credential_id;
+  if credential_row.id is null or credential_row.expires_at <= now() then
+    delete from public.mt5_credentials where id = p_credential_id;
+    raise exception 'Credential unavailable or expired';
+  end if;
+  select decrypted_secret into encryption_key from vault.decrypted_secrets where name = 'mt5_credential_key' limit 1;
+  insert into public.credential_access_log(client_id, admin_id, slot)
+  values (credential_row.user_id, auth.uid(), credential_row.slot);
+  return pgp_sym_decrypt(credential_row.encrypted_password, encryption_key);
+end;
+$$;
+
 revoke all on function public.submit_mt5_credential(smallint, text) from public;
 revoke all on function public.claim_mt5_credential(uuid) from public;
+revoke all on function public.reveal_mt5_credential(uuid) from public;
 grant execute on function public.submit_mt5_credential(smallint, text) to authenticated;
 grant execute on function public.claim_mt5_credential(uuid) to authenticated;
+grant execute on function public.reveal_mt5_credential(uuid) to authenticated;
 
 create or replace function public.handle_new_user()
 returns trigger
