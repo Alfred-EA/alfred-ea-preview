@@ -12,7 +12,11 @@
     document.getElementById('clientTitle').textContent = 'Client Démo';
     details.innerHTML = `
       <p class="muted">DOSSIER DE DÉMONSTRATION · AUCUNE DONNÉE RÉELLE</p>
-      <div class="section"><h2>Abonnement</h2>${row('Niveau 3', 'Actif · Renouvellement le 15 septembre 2026')}</div>
+      <div class="section"><h2>Abonnement</h2>
+        ${row('Niveau 3 · Actif', 'Membre depuis le 2 août 2026')}
+        ${row('60,00 $ CA', 'Dernière facturation : 2 août 2026')}
+        ${row('Prochain renouvellement', '15 septembre 2026')}
+      </div>
       <div class="section"><h2>Comptes MT5</h2>
         ${row('Compte 1 · STARTRADER', '12345678 · STARTRADER-Live', '<div class="actions"><button class="button demo-reveal">Simuler l’accès administrateur</button></div>')}
         ${row('Compte 2 · Vantage Markets (USA only)', '87654321 · VantageInternational-Live', '<small>Aucun mot de passe temporaire disponible</small>')}
@@ -26,13 +30,19 @@
   async function loadClient(client) {
     document.getElementById('clientTitle').textContent = client.full_name || 'Client';
     details.innerHTML = '<p class="muted">Chargement…</p>';
-    const [accounts, documents, credentials, membership] = await Promise.all([
+    const [accounts, documents, credentials, membership, latestInvoice] = await Promise.all([
       sb.from('mt5_accounts').select('slot,broker,server_name,account_number').eq('user_id', client.id).order('slot'),
       sb.from('documents').select('id,display_name,category,storage_path').eq('client_id', client.id).order('created_at', {ascending:false}),
       sb.from('mt5_credentials').select('id,slot,expires_at,created_at').eq('user_id', client.id).order('slot'),
-      sb.from('memberships').select('plan_name,status,renews_on').eq('user_id', client.id).maybeSingle()
+      sb.from('memberships').select('plan_name,status,starts_on,renews_on').eq('user_id', client.id).maybeSingle(),
+      sb.from('invoices').select('amount_cents,currency,issued_on,status').eq('client_id', client.id).order('issued_on', {ascending:false}).limit(1).maybeSingle()
     ]);
-    let html = `<p class="muted">Dossier ${escapeHtml(client.id)}</p><div class="section"><h2>Abonnement</h2>${row(membership.data?.plan_name || 'À confirmer', membership.data?.status || 'En attente')}</div><div class="section"><h2>Comptes MT5</h2>`;
+    const memberSince = membership.data?.starts_on || client.created_at;
+    const memberSinceText = memberSince ? new Date(memberSince).toLocaleDateString('fr-CA', {year:'numeric',month:'long',day:'numeric'}) : 'À confirmer';
+    const invoiceAmount = latestInvoice.data ? (latestInvoice.data.amount_cents / 100).toLocaleString('fr-CA', {style:'currency',currency:latestInvoice.data.currency}) : 'Aucune facturation';
+    const billingDate = latestInvoice.data?.issued_on ? new Date(`${latestInvoice.data.issued_on}T12:00:00`).toLocaleDateString('fr-CA', {year:'numeric',month:'long',day:'numeric'}) : '—';
+    const renewalDate = membership.data?.renews_on ? new Date(`${membership.data.renews_on}T12:00:00`).toLocaleDateString('fr-CA', {year:'numeric',month:'long',day:'numeric'}) : 'À confirmer';
+    let html = `<p class="muted">Dossier ${escapeHtml(client.id)}</p><div class="section"><h2>Abonnement</h2>${row(`${membership.data?.plan_name || 'À confirmer'} · ${membership.data?.status || 'En attente'}`, `Membre depuis le ${memberSinceText}`)}${row(invoiceAmount, `Dernière facturation : ${billingDate}`)}${row('Prochain renouvellement', renewalDate)}</div><div class="section"><h2>Comptes MT5</h2>`;
     html += (accounts.data || []).map(account => {
       const credential = (credentials.data || []).find(item => item.slot === account.slot);
       const action = credential ? `<div class="actions"><button class="button reveal" data-id="${credential.id}">Accéder avec mon mot de passe administrateur · expire ${new Date(credential.expires_at).toLocaleString('fr-CA')}</button></div>` : '<small>Aucun mot de passe temporaire disponible</small>';
