@@ -34,8 +34,21 @@
     <div class="dashboard-columns">
       <article class="dashboard-panel"><h2>Messages privés</h2><div class="message-list" id="messageList"><p>Aucun message.</p></div><form id="messageForm" class="message-form"><textarea id="messageBody" maxlength="5000" placeholder="Écrire un message à Alfred-EA" required></textarea><button class="submit" type="submit">Envoyer</button></form></article>
       <article class="dashboard-panel"><h2>Mes factures</h2><div id="invoiceList"><p>Aucune facture disponible.</p></div><h2 class="section-space">Mes documents</h2><div id="documentList"><p>Aucun document disponible.</p></div></article>
+    </div>
+    <div class="secure-sections">
+      <article class="dashboard-panel"><h2>Mes comptes MT5</h2><p class="security-note">Enregistrez jusqu’à cinq comptes. Aucun mot de passe MT5 n’est demandé ici.</p><form id="mt5Form" class="secure-form"><div id="mt5Rows"></div><button class="submit" type="submit">Enregistrer mes comptes MT5</button><p class="form-feedback" id="mt5Status" role="status"></p></form></article>
+      <article class="dashboard-panel"><h2>Permis de conduire</h2><p class="security-note">Téléversement privé — JPG, PNG, WebP ou PDF, maximum 10 Mo par fichier.</p><form id="licenseForm" class="secure-form"><div class="upload-grid"><div class="upload-box"><label for="licenseFront">Recto du permis</label><input id="licenseFront" type="file" accept="image/jpeg,image/png,image/webp,application/pdf" required></div><div class="upload-box"><label for="licenseBack">Verso du permis</label><input id="licenseBack" type="file" accept="image/jpeg,image/png,image/webp,application/pdf" required></div></div><button class="submit" type="submit">Enregistrer mon permis</button><p class="form-feedback" id="licenseStatus" role="status"></p></form></article>
     </div>`;
   document.querySelector('.page').appendChild(dashboard);
+
+  const brokers = ['Choisir un courtier', 'FP Markets', 'IC Markets', 'Eightcap', 'Pepperstone', 'AvaTrade', 'Vantage', 'XM', 'Exness', 'Autre'];
+  const mt5Rows = document.getElementById('mt5Rows');
+  for (let slot = 1; slot <= 5; slot += 1) {
+    const row = document.createElement('div');
+    row.className = 'mt5-row';
+    row.innerHTML = `<div class="mt5-slot">Compte ${slot}</div><div class="compact-field"><label for="broker${slot}">Courtier</label><select id="broker${slot}">${brokers.map((broker, index) => `<option value="${index ? broker : ''}">${broker}</option>`).join('')}</select></div><div class="compact-field"><label for="server${slot}">Serveur MT5</label><input id="server${slot}" maxlength="160" placeholder="Ex. Broker-Live01"></div><div class="compact-field"><label for="account${slot}">Numéro de compte</label><input id="account${slot}" inputmode="numeric" pattern="[0-9]{3,30}" maxlength="30" placeholder="Ex. 12345678"></div>`;
+    mt5Rows.appendChild(row);
+  }
 
   const addTextRow = (container, primary, secondary) => {
     const row = document.createElement('div');
@@ -77,12 +90,13 @@
   async function loadDashboard(user) {
     layout.hidden = true;
     dashboard.hidden = false;
-    const [profileResult, membershipResult, messagesResult, invoicesResult, documentsResult] = await Promise.all([
+    const [profileResult, membershipResult, messagesResult, invoicesResult, documentsResult, mt5Result] = await Promise.all([
       sb.from('profiles').select('full_name').eq('id', user.id).maybeSingle(),
       sb.from('memberships').select('plan_name,status,renews_on').eq('user_id', user.id).maybeSingle(),
       sb.from('messages').select('body,created_at,sender_id').eq('client_id', user.id).order('created_at', { ascending: true }),
       sb.from('invoices').select('invoice_number,description,amount_cents,currency,status,issued_on').eq('client_id', user.id).order('created_at', { ascending: false }),
-      sb.from('documents').select('display_name,category,created_at').eq('client_id', user.id).order('created_at', { ascending: false })
+      sb.from('documents').select('display_name,category,created_at').eq('client_id', user.id).order('created_at', { ascending: false }),
+      sb.from('mt5_accounts').select('slot,broker,server_name,account_number').eq('user_id', user.id).order('slot')
     ]);
     document.getElementById('welcomeName').textContent = `Bonjour, ${profileResult.data?.full_name || user.email}`;
     document.getElementById('membershipPlan').textContent = membershipResult.data?.plan_name || 'À confirmer';
@@ -101,6 +115,12 @@
     documentList.replaceChildren();
     (documentsResult.data || []).forEach(document => addTextRow(documentList, document.display_name, document.category));
     if (!documentsResult.data?.length) documentList.innerHTML = '<p>Aucun document disponible.</p>';
+    for (let slot = 1; slot <= 5; slot += 1) {
+      const account = (mt5Result.data || []).find(item => item.slot === slot);
+      document.getElementById(`broker${slot}`).value = account?.broker || '';
+      document.getElementById(`server${slot}`).value = account?.server_name || '';
+      document.getElementById(`account${slot}`).value = account?.account_number || '';
+    }
   }
 
   loginForm.addEventListener('submit', async event => {
@@ -124,6 +144,46 @@
   });
 
   dashboard.addEventListener('submit', async event => {
+    if (event.target.id === 'mt5Form') {
+      event.preventDefault();
+      if (demoMode) return document.getElementById('mt5Status').textContent = 'Aperçu : les informations ne sont pas enregistrées en mode démo.';
+      const { data: { user } } = await sb.auth.getUser();
+      if (!user) return;
+      const accounts = [];
+      for (let slot = 1; slot <= 5; slot += 1) {
+        const broker = document.getElementById(`broker${slot}`).value;
+        const server_name = document.getElementById(`server${slot}`).value.trim();
+        const account_number = document.getElementById(`account${slot}`).value.trim();
+        if (!broker && !server_name && !account_number) continue;
+        if (!broker || !/^[0-9]{3,30}$/.test(account_number)) return document.getElementById('mt5Status').textContent = `Vérifiez le courtier et le numéro du compte ${slot}.`;
+        accounts.push({ user_id: user.id, slot, broker, server_name: server_name || null, account_number, updated_at: new Date().toISOString() });
+      }
+      const { error: deleteError } = await sb.from('mt5_accounts').delete().eq('user_id', user.id);
+      const { error: insertError } = !deleteError && accounts.length ? await sb.from('mt5_accounts').insert(accounts) : { error: null };
+      document.getElementById('mt5Status').textContent = deleteError || insertError ? 'Impossible d’enregistrer pour le moment.' : 'Vos comptes MT5 ont été enregistrés.';
+      return;
+    }
+    if (event.target.id === 'licenseForm') {
+      event.preventDefault();
+      if (demoMode) return document.getElementById('licenseStatus').textContent = 'Aperçu : aucun document n’est téléversé en mode démo.';
+      const { data: { user } } = await sb.auth.getUser();
+      if (!user) return;
+      const files = [['front', document.getElementById('licenseFront').files[0], 'Permis de conduire — recto'], ['back', document.getElementById('licenseBack').files[0], 'Permis de conduire — verso']];
+      if (files.some(([, file]) => !file || file.size > 10485760)) return document.getElementById('licenseStatus').textContent = 'Sélectionnez deux fichiers de 10 Mo maximum.';
+      document.getElementById('licenseStatus').textContent = 'Téléversement en cours…';
+      for (const [side, file, displayName] of files) {
+        const extension = (file.name.split('.').pop() || 'bin').toLowerCase();
+        const path = `${user.id}/identity/license-${side}-${Date.now()}.${extension}`;
+        const { error: uploadError } = await sb.storage.from('client-documents').upload(path, file, { contentType: file.type });
+        if (uploadError) return document.getElementById('licenseStatus').textContent = 'Le téléversement a échoué. Réessayez.';
+        const { error: recordError } = await sb.from('documents').insert({ client_id: user.id, uploaded_by: user.id, category: `drivers_license_${side}`, display_name: displayName, storage_path: path });
+        if (recordError) return document.getElementById('licenseStatus').textContent = 'Le document a été reçu, mais son dossier doit être vérifié.';
+      }
+      event.target.reset();
+      document.getElementById('licenseStatus').textContent = 'Votre permis a été enregistré de façon privée.';
+      await loadDashboard(user);
+      return;
+    }
     if (event.target.id !== 'messageForm') return;
     event.preventDefault();
     const body = document.getElementById('messageBody').value.trim();

@@ -76,6 +76,20 @@ create table if not exists public.documents (
 
 create index if not exists documents_client_created_idx on public.documents(client_id, created_at desc);
 
+create table if not exists public.mt5_accounts (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  slot smallint not null check (slot between 1 and 5),
+  broker text not null check (char_length(broker) between 1 and 120),
+  server_name text check (server_name is null or char_length(server_name) <= 160),
+  account_number text not null check (account_number ~ '^[0-9]{3,30}$'),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (user_id, slot)
+);
+
+create index if not exists mt5_accounts_user_idx on public.mt5_accounts(user_id, slot);
+
 create or replace function public.handle_new_user()
 returns trigger
 language plpgsql
@@ -103,6 +117,7 @@ alter table public.memberships enable row level security;
 alter table public.messages enable row level security;
 alter table public.invoices enable row level security;
 alter table public.documents enable row level security;
+alter table public.mt5_accounts enable row level security;
 
 drop policy if exists profiles_read_own_or_admin on public.profiles;
 create policy profiles_read_own_or_admin on public.profiles for select to authenticated
@@ -147,6 +162,22 @@ create policy documents_client_add on public.documents for insert to authenticat
 with check (client_id = auth.uid() and uploaded_by = auth.uid());
 drop policy if exists documents_admin_manage on public.documents;
 create policy documents_admin_manage on public.documents for all to authenticated
+using (public.is_admin()) with check (public.is_admin());
+
+drop policy if exists mt5_accounts_read_own_or_admin on public.mt5_accounts;
+create policy mt5_accounts_read_own_or_admin on public.mt5_accounts for select to authenticated
+using (user_id = auth.uid() or public.is_admin());
+drop policy if exists mt5_accounts_add_own on public.mt5_accounts;
+create policy mt5_accounts_add_own on public.mt5_accounts for insert to authenticated
+with check (user_id = auth.uid());
+drop policy if exists mt5_accounts_update_own on public.mt5_accounts;
+create policy mt5_accounts_update_own on public.mt5_accounts for update to authenticated
+using (user_id = auth.uid()) with check (user_id = auth.uid());
+drop policy if exists mt5_accounts_delete_own on public.mt5_accounts;
+create policy mt5_accounts_delete_own on public.mt5_accounts for delete to authenticated
+using (user_id = auth.uid());
+drop policy if exists mt5_accounts_admin_manage on public.mt5_accounts;
+create policy mt5_accounts_admin_manage on public.mt5_accounts for all to authenticated
 using (public.is_admin()) with check (public.is_admin());
 
 insert into storage.buckets(id, name, public, file_size_limit, allowed_mime_types)
