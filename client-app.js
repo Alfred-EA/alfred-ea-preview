@@ -142,7 +142,14 @@
 
   signupForm.addEventListener('submit', async event => {
     event.preventDefault();
-    const { error } = await sb.auth.signUp({ email: document.getElementById('signupEmail').value, password: document.getElementById('signupPassword').value, options: { data: { full_name: document.getElementById('signupName').value.trim() } } });
+    const { error } = await sb.auth.signUp({
+      email: document.getElementById('signupEmail').value,
+      password: document.getElementById('signupPassword').value,
+      options: {
+        emailRedirectTo: `${location.origin}${location.pathname}`,
+        data: { full_name: document.getElementById('signupName').value.trim() }
+      }
+    });
     status('signupStatus', error ? error.message : 'Vérifiez votre courriel pour confirmer votre compte.', !!error);
   });
 
