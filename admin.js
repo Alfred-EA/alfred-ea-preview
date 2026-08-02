@@ -4,11 +4,13 @@
   const grid = document.getElementById('adminGrid');
   const clients = document.getElementById('clients');
   const details = document.getElementById('clientDetails');
+  let selectedClient = null;
 
   const row = (title, subtitle, actions = '') => `<div class="row"><strong>${escapeHtml(title)}</strong><small>${escapeHtml(subtitle || '')}</small>${actions}</div>`;
   const escapeHtml = value => String(value || '').replace(/[&<>'"]/g, character => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[character]));
 
   function loadDemoClient() {
+    selectedClient = {id:'demo', full_name:'Client Démo'};
     document.getElementById('clientTitle').textContent = 'Client Démo';
     details.innerHTML = `
       <p class="muted">DOSSIER DE DÉMONSTRATION · AUCUNE DONNÉE RÉELLE</p>
@@ -24,18 +26,21 @@
       <div class="section"><h2>Documents privés</h2>
         ${row('Permis de conduire — recto', 'drivers_license_front', '<small>Document fictif</small>')}
         ${row('Permis de conduire — verso', 'drivers_license_back', '<small>Document fictif</small>')}
-      </div>`;
+      </div>
+      <div class="section"><h2>Conversation privée</h2><div class="admin-conversation"><div class="message client-message"><strong>Client Démo</strong><p>Bonjour, mon compte MT5 est maintenant prêt.</p><small>Aujourd’hui · 09:15</small></div><div class="message admin-message"><strong>Alfred-EA</strong><p>Merci. Nous allons vérifier votre dossier et vous confirmer l’activation.</p><small>Aujourd’hui · 09:22</small></div></div><form class="admin-message-form"><textarea maxlength="5000" placeholder="Écrire un message privé au client" required></textarea><button class="button" type="submit">Envoyer au client</button><p class="muted message-status"></p></form></div>`;
   }
 
   async function loadClient(client) {
+    selectedClient = client;
     document.getElementById('clientTitle').textContent = client.full_name || 'Client';
     details.innerHTML = '<p class="muted">Chargement…</p>';
-    const [accounts, documents, credentials, membership, latestInvoice] = await Promise.all([
+    const [accounts, documents, credentials, membership, latestInvoice, messages] = await Promise.all([
       sb.from('mt5_accounts').select('slot,broker,server_name,account_number').eq('user_id', client.id).order('slot'),
       sb.from('documents').select('id,display_name,category,storage_path').eq('client_id', client.id).order('created_at', {ascending:false}),
       sb.from('mt5_credentials').select('id,slot,expires_at,created_at').eq('user_id', client.id).order('slot'),
       sb.from('memberships').select('plan_name,status,starts_on,renews_on').eq('user_id', client.id).maybeSingle(),
-      sb.from('invoices').select('amount_cents,currency,issued_on,status').eq('client_id', client.id).order('issued_on', {ascending:false}).limit(1).maybeSingle()
+      sb.from('invoices').select('amount_cents,currency,issued_on,status').eq('client_id', client.id).order('issued_on', {ascending:false}).limit(1).maybeSingle(),
+      sb.from('messages').select('body,created_at,sender_id').eq('client_id', client.id).order('created_at', {ascending:true})
     ]);
     const memberSince = membership.data?.starts_on || client.created_at;
     const memberSinceText = memberSince ? new Date(memberSince).toLocaleDateString('fr-CA', {year:'numeric',month:'long',day:'numeric'}) : 'À confirmer';
@@ -50,7 +55,10 @@
     }).join('') || '<p class="muted">Aucun compte enregistré.</p>';
     html += '</div><div class="section"><h2>Documents privés</h2>';
     html += (documents.data || []).map(document => row(document.display_name, document.category, `<div class="actions"><button class="button open-document" data-path="${escapeHtml(document.storage_path)}">Ouvrir</button></div>`)).join('') || '<p class="muted">Aucun document.</p>';
-    details.innerHTML = html + '</div>';
+    html += '</div><div class="section"><h2>Conversation privée</h2><div class="admin-conversation">';
+    html += (messages.data || []).map(message => `<div class="message ${message.sender_id === client.id ? 'client-message' : 'admin-message'}"><strong>${message.sender_id === client.id ? escapeHtml(client.full_name || 'Client') : 'Alfred-EA'}</strong><p>${escapeHtml(message.body)}</p><small>${new Date(message.created_at).toLocaleString('fr-CA')}</small></div>`).join('') || '<p class="muted">Aucun message pour ce client.</p>';
+    html += '</div><form class="admin-message-form"><textarea maxlength="5000" placeholder="Écrire un message privé au client" required></textarea><button class="button" type="submit">Envoyer au client</button><p class="muted message-status"></p></form></div>';
+    details.innerHTML = html;
   }
 
   async function init() {
@@ -82,6 +90,22 @@
     if (open) { const {data,error}=await sb.storage.from('client-documents').createSignedUrl(open.dataset.path,300); if(error) alert('Document inaccessible.'); else window.open(data.signedUrl,'_blank','noopener'); }
   });
   details.addEventListener('submit', async event => {
+    const messageForm=event.target.closest('.admin-message-form');
+    if(messageForm){
+      event.preventDefault();
+      const textarea=messageForm.querySelector('textarea'); const feedback=messageForm.querySelector('.message-status'); const body=textarea.value.trim();
+      if(!body||!selectedClient) return;
+      if(selectedClient.id==='demo'){
+        const conversation=messageForm.previousElementSibling;
+        conversation.insertAdjacentHTML('beforeend',`<div class="message admin-message"><strong>Alfred-EA</strong><p>${escapeHtml(body)}</p><small>À l’instant · démonstration</small></div>`);
+        textarea.value=''; feedback.textContent='Message de démonstration — aucune donnée enregistrée.'; return;
+      }
+      const submitButton=messageForm.querySelector('button'); submitButton.disabled=true; feedback.textContent='Envoi…';
+      const {data:{user}}=await sb.auth.getUser();
+      const {error}=await sb.from('messages').insert({client_id:selectedClient.id,sender_id:user.id,body});
+      if(error){feedback.textContent='Le message n’a pas pu être envoyé.';submitButton.disabled=false;return;}
+      await loadClient(selectedClient); return;
+    }
     const gate=event.target.closest('.credential-gate');
     if(!gate) return;
     event.preventDefault();
