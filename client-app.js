@@ -7,6 +7,12 @@
   const layout = document.querySelector('.layout');
   const notice = document.querySelector('.demo-notice');
   notice.innerHTML = '<strong>Connexion sécurisée.</strong> Vos informations sont protégées et chaque client peut uniquement consulter son propre dossier.';
+  let demoMode = false;
+  const demoButton = document.createElement('button');
+  demoButton.type = 'button';
+  demoButton.className = 'dashboard-action demo-access';
+  demoButton.textContent = 'Voir le tableau de bord démo';
+  notice.insertAdjacentElement('afterend', demoButton);
 
   const status = (id, message, error = false) => {
     const element = document.getElementById(id);
@@ -41,6 +47,32 @@
     row.append(strong, small);
     container.appendChild(row);
   };
+
+  function showDemoDashboard() {
+    demoMode = true;
+    layout.hidden = true;
+    dashboard.hidden = false;
+    dashboard.classList.add('demo-dashboard');
+    document.getElementById('welcomeName').textContent = 'Bonjour, Admin 1';
+    document.getElementById('membershipPlan').textContent = 'Niveau 3';
+    document.getElementById('membershipStatus').textContent = 'Actif · Renouvellement le 15 septembre 2026';
+    document.getElementById('invoiceCount').textContent = '2';
+    document.getElementById('documentCount').textContent = '3';
+    const messageList = document.getElementById('messageList');
+    messageList.replaceChildren();
+    addTextRow(messageList, 'Bienvenue dans votre Espace client Alfred-EA.', 'Équipe Alfred-EA · Aujourd’hui');
+    addTextRow(messageList, 'Votre abonnement est actif et votre dossier est à jour.', 'Équipe Alfred-EA · Aujourd’hui');
+    const invoiceList = document.getElementById('invoiceList');
+    invoiceList.replaceChildren();
+    addTextRow(invoiceList, 'AE-2026-002', '60,00 $ CA · Payée');
+    addTextRow(invoiceList, 'AE-2026-001', '60,00 $ CA · Payée');
+    const documentList = document.getElementById('documentList');
+    documentList.replaceChildren();
+    addTextRow(documentList, 'Convention de service', 'Contrat');
+    addTextRow(documentList, 'Confirmation du compte courtier', 'Compte');
+    addTextRow(documentList, 'Guide de démarrage', 'Information');
+  }
+  demoButton.addEventListener('click', showDemoDashboard);
 
   async function loadDashboard(user) {
     layout.hidden = true;
@@ -94,13 +126,18 @@
   dashboard.addEventListener('submit', async event => {
     if (event.target.id !== 'messageForm') return;
     event.preventDefault();
-    const { data: { user } } = await sb.auth.getUser();
     const body = document.getElementById('messageBody').value.trim();
+    if (demoMode) {
+      if (body) addTextRow(document.getElementById('messageList'), body, 'Admin 1 · Démonstration');
+      document.getElementById('messageBody').value = '';
+      return;
+    }
+    const { data: { user } } = await sb.auth.getUser();
     if (!user || !body) return;
     const { error } = await sb.from('messages').insert({ client_id: user.id, sender_id: user.id, body });
     if (!error) { document.getElementById('messageBody').value = ''; await loadDashboard(user); }
   });
-  document.getElementById('logoutButton').addEventListener('click', () => sb.auth.signOut());
+  document.getElementById('logoutButton').addEventListener('click', () => demoMode ? location.reload() : sb.auth.signOut());
   sb.auth.onAuthStateChange((_event, session) => session?.user ? loadDashboard(session.user) : (dashboard.hidden = true, layout.hidden = false));
   sb.auth.getSession().then(({ data }) => data.session?.user && loadDashboard(data.session.user));
 })();
