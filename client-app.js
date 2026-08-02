@@ -41,7 +41,7 @@
     </div>`;
   document.querySelector('.page').appendChild(dashboard);
 
-  const brokers = ['Choisir un courtier', 'STARTRADER', 'Vantage Markets — citoyens américains uniquement', 'PU Prime', 'Axi', 'VT Markets', 'Ultima Markets'];
+  const brokers = ['Choisir un courtier', 'STARTRADER', 'Vantage Markets (USA only)', 'PU Prime', 'Axi', 'VT Markets', 'Ultima Markets'];
   const mt5Rows = document.getElementById('mt5Rows');
   for (let slot = 1; slot <= 5; slot += 1) {
     const row = document.createElement('div');
