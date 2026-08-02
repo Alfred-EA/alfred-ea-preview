@@ -9,6 +9,21 @@
   const row = (title, subtitle, actions = '') => `<div class="row"><strong>${escapeHtml(title)}</strong><small>${escapeHtml(subtitle || '')}</small>${actions}</div>`;
   const escapeHtml = value => String(value || '').replace(/[&<>'"]/g, character => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[character]));
 
+  function loadDemoClient() {
+    document.getElementById('clientTitle').textContent = 'Client Démo';
+    details.innerHTML = `
+      <p class="muted">DOSSIER DE DÉMONSTRATION · AUCUNE DONNÉE RÉELLE</p>
+      <div class="section"><h2>Abonnement</h2>${row('Niveau 3', 'Actif · Renouvellement le 15 septembre 2026')}</div>
+      <div class="section"><h2>Comptes MT5</h2>
+        ${row('Compte 1 · STARTRADER', '12345678 · STARTRADER-Live', '<div class="actions"><button class="button demo-reveal">Simuler la révélation unique</button></div>')}
+        ${row('Compte 2 · Vantage Markets (USA only)', '87654321 · VantageInternational-Live', '<small>Aucun mot de passe temporaire disponible</small>')}
+      </div>
+      <div class="section"><h2>Documents privés</h2>
+        ${row('Permis de conduire — recto', 'drivers_license_front', '<small>Document fictif</small>')}
+        ${row('Permis de conduire — verso', 'drivers_license_back', '<small>Document fictif</small>')}
+      </div>`;
+  }
+
   async function loadClient(client) {
     document.getElementById('clientTitle').textContent = client.full_name || 'Client';
     details.innerHTML = '<p class="muted">Chargement…</p>';
@@ -37,10 +52,17 @@
     const {data:profiles, error} = await sb.from('profiles').select('id,full_name,created_at').order('created_at', {ascending:false});
     if (error) { status.textContent = 'Impossible de charger les dossiers.'; return; }
     status.hidden = true; grid.hidden = false; clients.replaceChildren();
+    const demoButton=document.createElement('button'); demoButton.className='client demo-client'; demoButton.innerHTML='Client Démo<small>Aperçu administrateur · aucune donnée réelle</small>'; demoButton.addEventListener('click',loadDemoClient); clients.appendChild(demoButton);
     profiles.forEach(profile => { const button=document.createElement('button'); button.className='client'; button.innerHTML=`${escapeHtml(profile.full_name || 'Client')}<small>${escapeHtml(profile.id)}</small>`; button.addEventListener('click',()=>loadClient(profile)); clients.appendChild(button); });
+    loadDemoClient();
   }
 
   details.addEventListener('click', async event => {
+    const demoReveal = event.target.closest('.demo-reveal');
+    if (demoReveal) {
+      const box=document.getElementById('secretBox'); document.getElementById('revealedSecret').value='DEMO-ONLY-NOT-A-REAL-PASSWORD'; box.hidden=false;
+      clearTimeout(clearTimer); clearTimer=setTimeout(clearSecret,120000); demoReveal.remove(); return;
+    }
     const reveal = event.target.closest('.reveal');
     if (reveal) {
       if (!confirm('Ce mot de passe sera supprimé du serveur immédiatement et ne pourra plus être révélé. Continuer?')) return;
