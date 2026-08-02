@@ -26,14 +26,14 @@
   dashboard.hidden = true;
   dashboard.innerHTML = `
     <div class="dashboard-head"><div><div class="eyebrow">ESPACE SÉCURISÉ</div><h1 id="welcomeName">Bonjour</h1></div><button class="dashboard-action" id="logoutButton" type="button">Déconnexion</button></div>
+    <div class="ea-performance"><div class="performance-title">PERFORMANCE EA LIVE</div><div class="performance-stat"><span>Semaine</span><strong id="clientFxWeek">--</strong></div><div class="performance-stat"><span>Mois</span><strong id="clientFxMonth">--</strong></div><div class="performance-stat"><span>Depuis ouverture</span><strong id="clientFxTotal">--</strong></div></div>
     <div class="dashboard-grid">
       <article class="dashboard-card"><span>ABONNEMENT</span><strong id="membershipPlan">Chargement…</strong><p id="membershipStatus">—</p></article>
       <article class="dashboard-card"><span>FACTURES</span><strong id="invoiceCount">0</strong><p>Documents disponibles</p></article>
       <article class="dashboard-card"><span>DOCUMENTS</span><strong id="documentCount">0</strong><p>Fichiers privés</p></article>
     </div>
-    <div class="ea-performance"><div class="performance-title">PERFORMANCE EA LIVE</div><div class="performance-stat"><span>Semaine</span><strong id="clientFxWeek">--</strong></div><div class="performance-stat"><span>Mois</span><strong id="clientFxMonth">--</strong></div><div class="performance-stat"><span>Depuis ouverture</span><strong id="clientFxTotal">--</strong></div></div>
     <div class="dashboard-columns">
-      <article class="dashboard-panel"><h2>Messages privés</h2><div class="message-list" id="messageList"><p>Aucun message.</p></div><form id="messageForm" class="message-form"><textarea id="messageBody" maxlength="5000" placeholder="Écrire un message à Alfred-EA" required></textarea><button class="submit" type="submit">Envoyer</button></form></article>
+      <article class="dashboard-panel"><h2>Discussion avec Alfred-EA</h2><p class="chat-note">Vos messages restent dans votre dossier privé et sont visibles par l’équipe administratrice.</p><div class="message-list chat-list" id="messageList"><p>Aucun message.</p></div><form id="messageForm" class="message-form"><textarea id="messageBody" maxlength="5000" placeholder="Écrire un message privé à Alfred-EA" required></textarea><button class="submit" type="submit">Envoyer le message</button></form></article>
       <article class="dashboard-panel"><h2>Mes factures</h2><div id="invoiceList"><p>Aucune facture disponible.</p></div><h2 class="section-space">Mes documents</h2><div id="documentList"><p>Aucun document disponible.</p></div></article>
     </div>
     <div class="secure-sections">
@@ -80,6 +80,17 @@
     container.appendChild(row);
   };
 
+  const addMessageBubble = (container, body, meta, own = false) => {
+    const bubble = document.createElement('div');
+    bubble.className = `chat-bubble ${own ? 'chat-own' : 'chat-admin'}`;
+    const message = document.createElement('p');
+    message.textContent = body;
+    const small = document.createElement('small');
+    small.textContent = meta;
+    bubble.append(message, small);
+    container.appendChild(bubble);
+  };
+
   function showDemoDashboard() {
     demoMode = true;
     layout.hidden = true;
@@ -92,8 +103,8 @@
     document.getElementById('documentCount').textContent = '3';
     const messageList = document.getElementById('messageList');
     messageList.replaceChildren();
-    addTextRow(messageList, 'Bienvenue dans votre Espace client Alfred-EA.', 'Équipe Alfred-EA · Aujourd’hui');
-    addTextRow(messageList, 'Votre abonnement est actif et votre dossier est à jour.', 'Équipe Alfred-EA · Aujourd’hui');
+    addMessageBubble(messageList, 'Bienvenue dans votre Espace client Alfred-EA.', 'Équipe Alfred-EA · Aujourd’hui');
+    addMessageBubble(messageList, 'Votre abonnement est actif et votre dossier est à jour.', 'Équipe Alfred-EA · Aujourd’hui');
     const invoiceList = document.getElementById('invoiceList');
     invoiceList.replaceChildren();
     addTextRow(invoiceList, 'AE-2026-002', '60,00 $ CA · Payée');
@@ -124,7 +135,7 @@
     document.getElementById('documentCount').textContent = String(documentsResult.data?.length || 0);
     const messageList = document.getElementById('messageList');
     messageList.replaceChildren();
-    (messagesResult.data || []).forEach(message => addTextRow(messageList, message.body, new Date(message.created_at).toLocaleString('fr-CA')));
+    (messagesResult.data || []).forEach(message => addMessageBubble(messageList, message.body, `${message.sender_id === user.id ? 'Vous' : 'Alfred-EA'} · ${new Date(message.created_at).toLocaleString('fr-CA')}`, message.sender_id === user.id));
     if (!messagesResult.data?.length) messageList.innerHTML = '<p>Aucun message.</p>';
     const invoiceList = document.getElementById('invoiceList');
     invoiceList.replaceChildren();
@@ -235,7 +246,7 @@
     event.preventDefault();
     const body = document.getElementById('messageBody').value.trim();
     if (demoMode) {
-      if (body) addTextRow(document.getElementById('messageList'), body, 'Admin 1 · Démonstration');
+      if (body) addMessageBubble(document.getElementById('messageList'), body, 'Vous · Démonstration', true);
       document.getElementById('messageBody').value = '';
       return;
     }
