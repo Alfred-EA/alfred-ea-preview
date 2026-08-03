@@ -15,7 +15,7 @@
   const gate = document.createElement('main');
   gate.className = 'account-gate';
   gate.hidden = true;
-  gate.innerHTML = `<div class="gate-icon">✓</div><div class="eyebrow">DERNIÈRE ÉTAPE</div><h1>Créez votre Espace client</h1><p>Vos choix et votre estimation d’abonnement sont prêts. Pour compléter l’inscription et transmettre votre demande, créez votre compte Alfred-EA ou connectez-vous.</p><div class="gate-actions"><a class="gate-create" href="client-space.html?return=broker-account.html&mode=signup">Créer mon compte</a><a class="gate-login" href="client-space.html?return=broker-account.html&mode=login">J’ai déjà un compte</a></div>`;
+  gate.innerHTML = `<div class="gate-icon">✓</div><div class="eyebrow">DERNIÈRE ÉTAPE</div><h1>Avez-vous déjà un compte Alfred-EA?</h1><p>Vos choix et votre estimation d’abonnement sont prêts. Choisissez votre situation pour compléter l’inscription.</p><div class="gate-actions"><a class="gate-login" href="client-space.html?return=broker-account.html&mode=login"><strong>Oui</strong> — Se connecter</a><a class="gate-create" href="client-space.html?return=broker-account.html&mode=signup"><strong>Non</strong> — Créer un compte</a></div>`;
   document.querySelector('.site-header').insertAdjacentElement('afterend', gate);
 
   const sessionReady = sb.auth.getSession();
