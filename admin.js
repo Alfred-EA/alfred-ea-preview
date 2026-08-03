@@ -146,8 +146,8 @@
     });
     const formatDate = value => value ? new Date(value.length === 10 ? `${value}T12:00:00` : value).toLocaleDateString('fr-CA', {year:'numeric',month:'long',day:'numeric'}) : 'date inconnue';
     groups.forEach(group => {
-      const section = document.createElement('section'); section.className=`client-group client-group-${group.key}`;
-      section.innerHTML=`<div class="client-group-title"><strong>${group.title}</strong><span class="client-count">${group.items.length}</span></div>`;
+      const section = document.createElement('details'); section.className=`client-group client-group-${group.key}`; section.open = true;
+      section.innerHTML=`<summary class="client-group-title"><strong>${group.title}</strong><span class="client-count">${group.items.length}</span></summary>`;
       if (!group.items.length) section.insertAdjacentHTML('beforeend','<p class="client-group-empty">Aucun client</p>');
       group.items.forEach(({profile,membership}) => {
         const button=document.createElement('button'); button.className='client';
