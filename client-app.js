@@ -37,7 +37,7 @@
     </div>
     <div class="dashboard-columns">
       <article class="dashboard-panel"><h2>Discussion avec Alfred-EA</h2><p class="chat-note">Vos messages restent dans votre dossier privé et sont visibles par l’équipe administratrice.</p><div class="message-list chat-list" id="messageList"><p>Aucun message.</p></div><form id="messageForm" class="message-form"><textarea id="messageBody" maxlength="5000" placeholder="Écrire un message privé à Alfred-EA" required></textarea><button class="submit" type="submit">Envoyer le message</button></form></article>
-      <article class="dashboard-panel"><h2>Mes factures</h2><div id="invoiceList"><p>Aucune facture disponible.</p></div><h2 class="section-space">Mes documents</h2><div id="documentList"><p>Aucun document disponible.</p></div></article>
+      <article class="dashboard-panel"><h2>Mes factures</h2><div id="invoiceList"><p>Aucune facture disponible.</p></div><button class="dashboard-action subscription-manage" id="manageSubscriptionButton" type="button" aria-expanded="false" aria-controls="subscriptionManagePanel">Gérer mon abonnement</button><div class="subscription-manage-panel" id="subscriptionManagePanel" hidden><p>Modifiez votre niveau ou demandez l’annulation avant le prochain renouvellement.</p><div class="subscription-actions"><a class="subscription-link" href="subscription.html">Voir ou modifier mon niveau</a><button class="subscription-cancel" id="cancelSubscriptionButton" type="button">Demander l’annulation</button></div><p id="subscriptionManageStatus">L’annulation est confirmée par l’équipe Alfred-EA avant de prendre effet.</p></div><h2 class="section-space">Mes documents</h2><div id="documentList"><p>Aucun document disponible.</p></div></article>
     </div>
     <div class="secure-sections">
       <article class="dashboard-panel"><h2>Mes comptes MT5</h2><p class="security-note">Enregistrez jusqu’à cinq comptes. Le mot de passe est chiffré, expire après 24 heures et chaque consultation exige une nouvelle authentification administrateur.</p><form id="mt5Form" class="secure-form"><div id="mt5Rows"></div><button class="submit" type="submit">Enregistrer et transmettre</button><p class="form-feedback" id="mt5Status" role="status"></p></form></article>
@@ -119,6 +119,17 @@
     addTextRow(documentList, 'Guide de démarrage', 'Information');
   }
   demoButton.addEventListener('click', showDemoDashboard);
+
+  document.getElementById('manageSubscriptionButton').addEventListener('click', event => {
+    const panel = document.getElementById('subscriptionManagePanel');
+    panel.hidden = !panel.hidden;
+    event.currentTarget.setAttribute('aria-expanded', String(!panel.hidden));
+  });
+  document.getElementById('cancelSubscriptionButton').addEventListener('click', () => {
+    const subject = encodeURIComponent('Demande d’annulation de mon abonnement Alfred-EA');
+    const body = encodeURIComponent('Bonjour,\n\nJe souhaite demander l’annulation de mon abonnement Alfred-EA avant mon prochain renouvellement. Merci de me confirmer la date de fin de mon accès.\n\nNom complet :\nAdresse courriel du compte :\n');
+    location.href = `mailto:alfred.expert.advisor@gmail.com?subject=${subject}&body=${body}`;
+  });
 
   async function loadDashboard(user) {
     layout.hidden = true;
