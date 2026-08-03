@@ -103,7 +103,9 @@
     const invoiceAmount = latestInvoice.data ? (latestInvoice.data.amount_cents / 100).toLocaleString('fr-CA', {style:'currency',currency:latestInvoice.data.currency}) : 'Aucune facturation';
     const billingDate = latestInvoice.data?.issued_on ? new Date(`${latestInvoice.data.issued_on}T12:00:00`).toLocaleDateString('fr-CA', {year:'numeric',month:'long',day:'numeric'}) : '—';
     const renewalDate = membership.data?.renews_on ? new Date(`${membership.data.renews_on}T12:00:00`).toLocaleDateString('fr-CA', {year:'numeric',month:'long',day:'numeric'}) : 'À confirmer';
-    let html = `<p class="muted">Dossier ${escapeHtml(client.id)}</p><div class="section"><h2>Abonnement</h2>${row(`${membership.data?.plan_name || 'À confirmer'} · ${membership.data?.status || 'En attente'}`, `Membre depuis le ${memberSinceText}`)}${row(invoiceAmount, `Dernière facturation : ${billingDate}`)}${row('Prochain renouvellement', renewalDate)}</div><div class="section"><h2>Comptes MT5</h2>`;
+    const awaitingApproval = !membership.data || membership.data.status === 'pending';
+    const approvalAction = awaitingApproval ? '<div class="actions"><button class="button approve-member" type="button">Approuver et activer le membre</button><small class="approval-status">Réservé aux administrateurs · confirmez le paiement avant l’approbation.</small></div>' : '';
+    let html = `<p class="muted">Dossier ${escapeHtml(client.id)}</p><div class="section"><h2>Abonnement</h2>${row(`${membership.data?.plan_name || 'À confirmer'} · ${membership.data?.status || 'En attente'}`, `Membre depuis le ${memberSinceText}`, approvalAction)}${row(invoiceAmount, `Dernière facturation : ${billingDate}`)}${row('Prochain renouvellement', renewalDate)}</div><div class="section"><h2>Comptes MT5</h2>`;
     html += (accounts.data || []).map(account => {
       const credential = (credentials.data || []).find(item => item.slot === account.slot);
       const action = credential ? `<div class="actions"><button class="button reveal" data-id="${credential.id}">Accéder avec mon mot de passe administrateur · expire ${new Date(credential.expires_at).toLocaleString('fr-CA')}</button></div>` : '<small>Aucun mot de passe temporaire disponible</small>';
@@ -159,6 +161,16 @@
   }
 
   details.addEventListener('click', async event => {
+    const approve = event.target.closest('.approve-member');
+    if (approve) {
+      if (!selectedClient || selectedClient.id === 'demo' || !confirm(`Confirmer que le paiement de ${selectedClient.full_name || 'ce membre'} a été reçu et activer son abonnement?`)) return;
+      const feedback = approve.parentElement.querySelector('.approval-status'); approve.disabled = true; feedback.textContent = 'Activation…';
+      const today = new Date().toISOString().slice(0,10);
+      const {data:existing} = await sb.from('memberships').select('plan_name,starts_on').eq('user_id', selectedClient.id).maybeSingle();
+      const {error} = await sb.from('memberships').upsert({user_id:selectedClient.id,plan_name:existing?.plan_name && existing.plan_name !== 'À confirmer' ? existing.plan_name : 'Abonnement Alfred-EA',status:'active',starts_on:existing?.starts_on || today,updated_at:new Date().toISOString()},{onConflict:'user_id'});
+      if (error) { feedback.textContent = 'L’activation a échoué. Réessayez.'; approve.disabled = false; return; }
+      feedback.textContent = 'Membre approuvé et abonnement activé.'; setTimeout(()=>location.reload(),700); return;
+    }
     const demoReveal = event.target.closest('.demo-reveal');
     if (demoReveal) {
       const accountRow=demoReveal.closest('.row');
