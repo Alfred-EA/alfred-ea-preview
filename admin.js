@@ -170,12 +170,9 @@
   details.addEventListener('click', async event => {
     const approve = event.target.closest('.approve-member');
     if (approve) {
-      if (!selectedClient || selectedClient.id === 'demo' || !confirm(`Confirmer que le paiement de ${selectedClient.full_name || 'ce membre'} a été reçu et activer son abonnement?`)) return;
-      const pin = prompt('Entrez votre PIN administrateur à 4 chiffres :'); if (!pin) return;
-      const feedback = approve.parentElement.querySelector('.approval-status'); approve.disabled = true; feedback.textContent = 'Activation…';
-      const {error} = await sb.rpc('approve_member',{p_user_id:selectedClient.id,p_pin:pin});
-      if (error) { feedback.textContent = 'PIN incorrect, verrouillé ou non configuré.'; approve.disabled = false; return; }
-      feedback.textContent = 'Membre approuvé et abonnement activé.'; setTimeout(()=>location.reload(),700); return;
+      if (!selectedClient || selectedClient.id === 'demo') return;
+      approve.closest('.actions').innerHTML=`<form class="member-approval-gate" data-user-id="${selectedClient.id}"><label>Confirmez le paiement et entrez votre PIN administrateur à 4 chiffres</label><input type="password" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" autocomplete="one-time-code" required><button class="button" type="submit">Confirmer et activer le membre</button><button class="button cancel-member-approval" type="button">Annuler</button><p class="muted approval-status">Cette action déplacera le client vers Abonnements actifs.</p></form>`;
+      return;
     }
     const demoReveal = event.target.closest('.demo-reveal');
     if (demoReveal) {
@@ -190,6 +187,16 @@
     if (open) { const {data,error}=await sb.storage.from('client-documents').createSignedUrl(open.dataset.path,300); if(error) alert('Document inaccessible.'); else window.open(data.signedUrl,'_blank','noopener'); }
   });
   details.addEventListener('submit', async event => {
+    const approvalGate=event.target.closest('.member-approval-gate');
+    if(approvalGate){
+      event.preventDefault();
+      const pin=approvalGate.querySelector('input').value.trim(); const feedback=approvalGate.querySelector('.approval-status'); const submitButton=approvalGate.querySelector('button[type="submit"]');
+      if(!/^\d{4}$/.test(pin)){feedback.textContent='Entrez un PIN de exactement 4 chiffres.';return;}
+      submitButton.disabled=true; feedback.textContent='Vérification du PIN et activation…';
+      const {error}=await sb.rpc('approve_member',{p_user_id:approvalGate.dataset.userId,p_pin:pin});
+      if(error){feedback.textContent='PIN incorrect, verrouillé ou non configuré. Le membre n’a pas été activé.';submitButton.disabled=false;return;}
+      feedback.textContent='Membre approuvé et abonnement activé.'; setTimeout(()=>location.reload(),700); return;
+    }
     const messageForm=event.target.closest('.admin-message-form');
     if(messageForm){
       event.preventDefault();
@@ -222,6 +229,8 @@
     gate.innerHTML=`<div class="account-secret"><strong>Mot de passe MT5 de ce compte</strong><input type="text" value="${escapeHtml(data)}" readonly><button class="button copy-account-secret" type="button">Copier</button><button class="button hide-account-secret" type="button">Masquer le mot de passe</button><small>Consultation journalisée · le PIN sera requis pour l’afficher de nouveau</small></div>`;
   });
   details.addEventListener('click',event=>{
+    const cancelApproval=event.target.closest('.cancel-member-approval');
+    if(cancelApproval){loadClient(selectedClient);return;}
     const copy=event.target.closest('.copy-account-secret');
     if(copy){navigator.clipboard.writeText(copy.closest('.account-secret').querySelector('input').value);return;}
     const hide=event.target.closest('.hide-account-secret');
