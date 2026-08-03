@@ -28,6 +28,8 @@
     }).catch(() => {});
   }
   const navigation = document.getElementById('mobileNavigation');
+  const brokerLink = navigation?.querySelector('a[href="broker-account.html"]');
+  if (brokerLink) brokerLink.textContent = 'Ouvrir un compte courtier';
   if (navigation && !navigation.querySelector('a[href="client-space.html"]')) {
     const link = document.createElement('a');
     link.href = 'client-space.html';
