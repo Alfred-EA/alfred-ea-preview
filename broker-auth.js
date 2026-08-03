@@ -3,6 +3,8 @@
   const PUBLISHABLE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxzdGptYW54enBzbnV4b25zcGZjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU2NzAxNjMsImV4cCI6MjEwMTI0NjE2M30.BVjCyTVWsODT6cpRKCSak5PI5a_4uhxifHP5z_ScqO8';
   const sb = window.supabase.createClient(PROJECT_URL, PUBLISHABLE_KEY);
   const shell = document.querySelector('.shell');
+  const APPLICATION_KEY = 'alfredBrokerApplication';
+  const APPLICATION_TTL = 24 * 60 * 60 * 1000;
 
   const style = document.createElement('style');
   style.textContent = `
@@ -22,7 +24,7 @@
   window.requireBrokerAccount = async state => {
     const { data, error } = await sessionReady;
     if (!error && data.session?.user) return true;
-    sessionStorage.setItem('alfredBrokerApplication', JSON.stringify(state));
+    localStorage.setItem(APPLICATION_KEY, JSON.stringify({ state, savedAt: Date.now() }));
     shell.hidden = true;
     gate.hidden = false;
     scrollTo({ top: 0, behavior: 'smooth' });
@@ -31,9 +33,13 @@
 
   sessionReady.then(({ data, error }) => {
     if (error || !data.session?.user) return;
-    const saved = sessionStorage.getItem('alfredBrokerApplication');
+    const saved = localStorage.getItem(APPLICATION_KEY);
     if (!saved || !window.resumeBrokerApplication) return;
-    sessionStorage.removeItem('alfredBrokerApplication');
-    try { window.resumeBrokerApplication(JSON.parse(saved)); } catch (restoreError) { console.error('Reprise impossible', restoreError); }
+    localStorage.removeItem(APPLICATION_KEY);
+    try {
+      const application = JSON.parse(saved);
+      if (!application?.state || Date.now() - Number(application.savedAt) > APPLICATION_TTL) return;
+      window.resumeBrokerApplication(application.state);
+    } catch (restoreError) { console.error('Reprise impossible', restoreError); }
   });
 })();
