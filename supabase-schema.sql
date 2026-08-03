@@ -31,16 +31,20 @@ $$;
 revoke all on function public.is_admin() from public;
 grant execute on function public.is_admin() to authenticated;
 
-create or replace function public.set_admin_pin(p_pin text)
+drop function if exists public.set_admin_pin(text);
+create or replace function public.set_admin_pin(p_current_pin text, p_new_pin text)
 returns void
 language plpgsql
 security definer
 set search_path = public, extensions
 as $$
+declare pin_is_configured boolean;
 begin
   if not public.is_admin() then raise exception 'Administrator access required'; end if;
-  if p_pin !~ '^[0-9]{4}$' then raise exception 'PIN must contain exactly four digits'; end if;
-  update public.admin_users set pin_hash = crypt(p_pin, gen_salt('bf', 10)), pin_failed_attempts = 0, pin_locked_until = null where user_id = auth.uid();
+  select pin_hash is not null into pin_is_configured from public.admin_users where user_id = auth.uid();
+  if pin_is_configured then perform public.require_admin_pin(p_current_pin); end if;
+  if p_new_pin !~ '^[0-9]{4}$' then raise exception 'PIN must contain exactly four digits'; end if;
+  update public.admin_users set pin_hash = crypt(p_new_pin, gen_salt('bf', 10)), pin_failed_attempts = 0, pin_locked_until = null where user_id = auth.uid();
 end;
 $$;
 
@@ -84,11 +88,11 @@ begin
 end;
 $$;
 
-revoke all on function public.set_admin_pin(text) from public;
+revoke all on function public.set_admin_pin(text, text) from public;
 revoke all on function public.has_admin_pin() from public;
 revoke all on function public.require_admin_pin(text) from public;
 revoke all on function public.verify_admin_pin(text) from public;
-grant execute on function public.set_admin_pin(text) to authenticated;
+grant execute on function public.set_admin_pin(text, text) to authenticated;
 grant execute on function public.has_admin_pin() to authenticated;
 grant execute on function public.verify_admin_pin(text) to authenticated;
 

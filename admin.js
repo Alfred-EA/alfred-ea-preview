@@ -106,7 +106,7 @@
     const invoiceAmount = latestInvoice.data ? (latestInvoice.data.amount_cents / 100).toLocaleString('fr-CA', {style:'currency',currency:latestInvoice.data.currency}) : 'Aucune facturation';
     const billingDate = latestInvoice.data?.issued_on ? new Date(`${latestInvoice.data.issued_on}T12:00:00`).toLocaleDateString('fr-CA', {year:'numeric',month:'long',day:'numeric'}) : '—';
     const renewalDate = membership.data?.renews_on ? new Date(`${membership.data.renews_on}T12:00:00`).toLocaleDateString('fr-CA', {year:'numeric',month:'long',day:'numeric'}) : 'À confirmer';
-    const awaitingApproval = !membership.data || membership.data.status === 'pending';
+    const awaitingApproval = client.admin_group === 'new' || !membership.data || membership.data.status === 'pending';
     const approvalAction = awaitingApproval ? '<div class="actions"><button class="button approve-member" type="button">Approuver et activer le membre</button><small class="approval-status">Réservé aux administrateurs · confirmez le paiement avant l’approbation.</small></div>' : '';
     let html = `<p class="muted">Dossier ${escapeHtml(client.id)}</p><div class="section"><h2>Abonnement</h2>${row(`${membership.data?.plan_name || 'À confirmer'} · ${membership.data?.status || 'En attente'}`, `Membre depuis le ${memberSinceText}`, approvalAction)}${row(invoiceAmount, `Dernière facturation : ${billingDate}`)}${row('Prochain renouvellement', renewalDate)}</div><div class="section"><h2>Comptes MT5</h2>`;
     html += (accounts.data || []).map(account => {
@@ -135,7 +135,9 @@
     if (membershipError) { status.textContent = 'Impossible de charger les abonnements.'; return; }
     const {data:hasPin} = await sb.rpc('has_admin_pin');
     status.hidden = true; grid.hidden = false; mt5Publisher.hidden = false; adminPinPanel.hidden = false; clients.replaceChildren();
-    document.getElementById('adminPinHelp').textContent = hasPin ? 'Votre PIN protège les approbations et les mots de passe MT5. Vous pouvez le modifier ici.' : 'Créez votre PIN de 4 chiffres avant d’approuver un membre ou d’afficher un mot de passe MT5.';
+    document.getElementById('adminPinHelp').textContent = hasPin ? 'Entrez votre PIN actuel avant de choisir un nouveau PIN.' : 'Créez votre PIN de 4 chiffres avant d’approuver un membre ou d’afficher un mot de passe MT5.';
+    document.getElementById('currentPinField').hidden = !hasPin;
+    document.getElementById('adminCurrentPinInput').required = Boolean(hasPin);
     document.getElementById('mt5Date').valueAsDate = new Date();
     loadMt5Results();
     const demoButton=document.createElement('button'); demoButton.className='client demo-client'; demoButton.innerHTML='Client Démo<small>Aperçu administrateur · aucune donnée réelle</small>'; demoButton.addEventListener('click',loadDemoClient); clients.appendChild(demoButton);
@@ -158,7 +160,7 @@
       group.items.forEach(({profile,membership}) => {
         const button=document.createElement('button'); button.className='client';
         const detail = group.key === 'inactive' ? 'Abonnement inactif' : group.key === 'active' ? membership.plan_name : group.key === 'unpaid' ? 'Paiement en attente' : '';
-        button.innerHTML=`${escapeHtml(profile.full_name || 'Client')}${detail ? `<small class="client-status">${escapeHtml(detail)}</small>` : ''}`; button.addEventListener('click',()=>loadClient(profile)); section.appendChild(button);
+        button.innerHTML=`${escapeHtml(profile.full_name || 'Client')}${detail ? `<small class="client-status">${escapeHtml(detail)}</small>` : ''}`; button.addEventListener('click',()=>loadClient({...profile,admin_group:group.key})); section.appendChild(button);
       });
       clients.appendChild(section);
     });
@@ -230,7 +232,7 @@
       ? '<button class="button demo-reveal">Simuler l’accès administrateur</button>'
       : `<button class="button reveal" data-id="${gate.dataset.id}">Accéder avec mon PIN administrateur</button>`;
   });
-  adminPinForm.addEventListener('submit',async event=>{event.preventDefault();const input=document.getElementById('adminPinInput');const pin=input.value.trim();if(!/^\d{4}$/.test(pin)){adminPinStatus.textContent='Le PIN doit contenir exactement 4 chiffres.';return;}const button=adminPinForm.querySelector('button');button.disabled=true;adminPinStatus.textContent='Enregistrement…';const {error}=await sb.rpc('set_admin_pin',{p_pin:pin});button.disabled=false;if(error){adminPinStatus.textContent='Le PIN n’a pas pu être enregistré.';return;}input.value='';adminPinStatus.textContent='PIN administrateur enregistré.';document.getElementById('adminPinHelp').textContent='Votre PIN protège les approbations et les mots de passe MT5. Vous pouvez le modifier ici.';});
+  adminPinForm.addEventListener('submit',async event=>{event.preventDefault();const currentInput=document.getElementById('adminCurrentPinInput');const input=document.getElementById('adminPinInput');const currentPin=currentInput.value.trim();const pin=input.value.trim();if(!/^\d{4}$/.test(pin)||(!document.getElementById('currentPinField').hidden&&!/^\d{4}$/.test(currentPin))){adminPinStatus.textContent='Chaque PIN doit contenir exactement 4 chiffres.';return;}const button=adminPinForm.querySelector('button');button.disabled=true;adminPinStatus.textContent='Vérification et enregistrement…';const {error}=await sb.rpc('set_admin_pin',{p_current_pin:currentPin||null,p_new_pin:pin});button.disabled=false;if(error){adminPinStatus.textContent='PIN actuel incorrect, verrouillé ou nouveau PIN invalide.';return;}currentInput.value='';input.value='';document.getElementById('currentPinField').hidden=false;currentInput.required=true;adminPinStatus.textContent='Nouveau PIN administrateur enregistré.';document.getElementById('adminPinHelp').textContent='Entrez votre PIN actuel avant de choisir un nouveau PIN.';});
   document.getElementById('logout').addEventListener('click',async()=>{await sb.auth.signOut();location.href='client-space.html';});
   init();
 })();
