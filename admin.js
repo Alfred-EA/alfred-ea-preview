@@ -52,7 +52,12 @@
   mt5Form.addEventListener('submit', async event => {
     event.preventDefault();
     if (!selectedMt5File) { mt5Status.textContent = 'Ajoutez d’abord une capture MT5.'; return; }
-    const submit = mt5Form.querySelector('button[type="submit"]'); submit.disabled = true; mt5Status.textContent = 'Téléversement et publication…';
+    const publishPin=document.getElementById('mt5PublishPin').value.trim();
+    if(!/^\d{4}$/.test(publishPin)){mt5Status.textContent='Entrez votre PIN administrateur de 4 chiffres.';return;}
+    const submit = mt5Form.querySelector('button[type="submit"]'); submit.disabled = true; mt5Status.textContent = 'Vérification du PIN…';
+    const {error:pinError}=await sb.rpc('verify_admin_pin',{p_pin:publishPin});
+    if(pinError){mt5Status.textContent='PIN incorrect, verrouillé ou non configuré. La capture n’a pas été envoyée.';submit.disabled=false;return;}
+    mt5Status.textContent = 'Téléversement et publication…';
     const extension = selectedMt5File.name.split('.').pop().toLowerCase();
     const path = `${crypto.randomUUID()}.${extension}`;
     const {error: uploadError} = await sb.storage.from('mt5-results').upload(path, selectedMt5File, {contentType:selectedMt5File.type, upsert:false});
@@ -64,7 +69,7 @@
   });
   mt5List.addEventListener('click', async event => {
     const article = event.target.closest('.result-admin-row'); if (!article) return;
-    if (event.target.closest('.toggle-result')) { const next = event.target.dataset.published !== 'true'; const {error} = await sb.from('mt5_results').update({is_published:next}).eq('id', article.dataset.id); if (!error) await loadMt5Results(); }
+    if (event.target.closest('.toggle-result')) { const next = event.target.dataset.published !== 'true'; if(next){const pin=prompt('Entrez votre PIN administrateur à 4 chiffres pour publier cette capture :');if(!pin)return;const {error:pinError}=await sb.rpc('verify_admin_pin',{p_pin:pin});if(pinError){alert('PIN incorrect, verrouillé ou non configuré.');return;}} const {error} = await sb.from('mt5_results').update({is_published:next}).eq('id', article.dataset.id); if (!error) await loadMt5Results(); }
     if (event.target.closest('.delete-result')) { if (!confirm('Supprimer définitivement cette capture?')) return; const {error} = await sb.from('mt5_results').delete().eq('id', article.dataset.id); if (!error) { await sb.storage.from('mt5-results').remove([article.dataset.path]); await loadMt5Results(); } }
   });
 
