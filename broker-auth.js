@@ -3,7 +3,6 @@
   const PUBLISHABLE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxzdGptYW54enBzbnV4b25zcGZjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU2NzAxNjMsImV4cCI6MjEwMTI0NjE2M30.BVjCyTVWsODT6cpRKCSak5PI5a_4uhxifHP5z_ScqO8';
   const sb = window.supabase.createClient(PROJECT_URL, PUBLISHABLE_KEY);
   const shell = document.querySelector('.shell');
-  shell.hidden = true;
 
   const style = document.createElement('style');
   style.textContent = `
@@ -16,12 +15,25 @@
   const gate = document.createElement('main');
   gate.className = 'account-gate';
   gate.hidden = true;
-  gate.innerHTML = `<div class="gate-icon">✓</div><div class="eyebrow">ÉTAPE REQUISE</div><h1>Compte Alfred-EA requis</h1><p>Pour continuer l’ouverture de votre compte courtier, créez votre Espace client Alfred-EA. Vous pourrez ensuite revenir automatiquement à cette demande.</p><div class="gate-actions"><a class="gate-create" href="client-space.html?return=broker-account.html&mode=signup">Créer mon compte</a><a class="gate-login" href="client-space.html?return=broker-account.html&mode=login">J’ai déjà un compte</a></div>`;
+  gate.innerHTML = `<div class="gate-icon">✓</div><div class="eyebrow">DERNIÈRE ÉTAPE</div><h1>Créez votre Espace client</h1><p>Vos choix et votre estimation d’abonnement sont prêts. Pour compléter l’inscription et transmettre votre demande, créez votre compte Alfred-EA ou connectez-vous.</p><div class="gate-actions"><a class="gate-create" href="client-space.html?return=broker-account.html&mode=signup">Créer mon compte</a><a class="gate-login" href="client-space.html?return=broker-account.html&mode=login">J’ai déjà un compte</a></div>`;
   document.querySelector('.site-header').insertAdjacentElement('afterend', gate);
 
-  sb.auth.getSession().then(({ data, error }) => {
-    const signedIn = !error && !!data.session?.user;
-    shell.hidden = !signedIn;
-    gate.hidden = signedIn;
+  const sessionReady = sb.auth.getSession();
+  window.requireBrokerAccount = async state => {
+    const { data, error } = await sessionReady;
+    if (!error && data.session?.user) return true;
+    sessionStorage.setItem('alfredBrokerApplication', JSON.stringify(state));
+    shell.hidden = true;
+    gate.hidden = false;
+    scrollTo({ top: 0, behavior: 'smooth' });
+    return false;
+  };
+
+  sessionReady.then(({ data, error }) => {
+    if (error || !data.session?.user) return;
+    const saved = sessionStorage.getItem('alfredBrokerApplication');
+    if (!saved || !window.resumeBrokerApplication) return;
+    sessionStorage.removeItem('alfredBrokerApplication');
+    try { window.resumeBrokerApplication(JSON.parse(saved)); } catch (restoreError) { console.error('Reprise impossible', restoreError); }
   });
 })();

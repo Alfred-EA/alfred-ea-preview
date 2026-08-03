@@ -224,6 +224,26 @@
       else if (step === 3) updateSubscriptionRecommendation();
       else continueButton.disabled = false;
     }
+    function brokerApplicationState() {
+      return { hasExisting, existingBrokers, preferredBrokers, noPreference, accountValue: accountValue.value };
+    }
+    window.resumeBrokerApplication = state => {
+      hasExisting = state.hasExisting;
+      existingBrokers = Array.isArray(state.existingBrokers) ? state.existingBrokers : [];
+      preferredBrokers = Array.isArray(state.preferredBrokers) ? state.preferredBrokers : [];
+      noPreference = !!state.noPreference;
+      accountValue.value = state.accountValue || '3000';
+      document.querySelectorAll('.account-status').forEach(button => button.classList.toggle('selected', (button.dataset.status === 'yes') === hasExisting));
+      document.querySelectorAll('#existingChoices .choice').forEach(button => button.classList.toggle('selected', existingBrokers.some(([id]) => id === button.dataset.broker)));
+      document.querySelectorAll('#preferenceChoices .choice').forEach(button => button.classList.toggle('selected', preferredBrokers.some(([id]) => id === button.dataset.broker)));
+      document.getElementById('noPreference').classList.toggle('selected', noPreference);
+      document.getElementById('summaryExisting').textContent = hasExisting ? existingBrokers.map(([, name]) => name).join(', ') : 'Aucun';
+      document.getElementById('summaryPreference').textContent = noPreference ? 'Aucune préférence' : preferredBrokers.map(([, name]) => name).join(', ');
+      document.getElementById('summaryAmount').textContent = Number(accountValue.value).toLocaleString('fr-CA') + ' $ USD';
+      const subscription = updateSubscriptionRecommendation();
+      document.getElementById('summarySubscription').textContent = subscription.name + ' · ' + subscription.price;
+      showStep(4);
+    };
     async function sendBrokerSelection() {
       const subscription = getSubscriptionLevel(Number(accountValue.value));
       const payload = {
@@ -268,6 +288,7 @@
       } else if (currentStep === 3) {
         const subscription = updateSubscriptionRecommendation();
         if (!subscription) return;
+        if (!window.requireBrokerAccount || !await window.requireBrokerAccount(brokerApplicationState())) return;
         document.getElementById("summaryExisting").textContent = hasExisting ? existingBrokers.map(([, name]) => name).join(", ") : "Aucun";
         document.getElementById("summaryPreference").textContent = noPreference ? "Aucune préférence" : preferredBrokers.map(([, name]) => name).join(", ");
         document.getElementById("summaryAmount").textContent = Number(accountValue.value).toLocaleString("fr-CA") + " $ USD";
@@ -319,6 +340,6 @@
   </script>
 <script>(()=>{const b=document.getElementById("menuToggle"),n=document.getElementById("mobileNavigation");if(!b||!n)return;const c=()=>{n.classList.remove("open");b.setAttribute("aria-expanded","false");b.setAttribute("aria-label","Ouvrir le menu")};b.addEventListener("click",()=>{const o=n.classList.toggle("open");b.setAttribute("aria-expanded",String(o));b.setAttribute("aria-label",o?"Fermer le menu":"Ouvrir le menu")});n.querySelectorAll("a").forEach(a=>a.addEventListener("click",c));addEventListener("resize",()=>{if(innerWidth>820)c()})})();</script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="broker-auth.js?v=1"></script></body>
+<script src="broker-auth.js?v=2"></script></body>
 <script src="client-nav.js?v=7"></script>
 </html>
