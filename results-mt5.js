@@ -1,5 +1,6 @@
 (() => {
-  const sb = window.supabase.createClient('https://lstjmanxzpsnuxonspfc.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdWJhYXNlIiwicmVmIjoibHN0am1hbnh6cHJudXhvbnNwZmMiLCJyb2xlIjoiYW5vbiIsImlhdCI6MTc4NTY3MDE2MywiZXhwIjoyMTAxMjQ2MTYzfQ.BVjCyTVWsODT6cpRKCSak5PI5a_4uhxifHP5z_ScqO8');
+  const apiUrl = 'https://lstjmanxzpsnuxonspfc.supabase.co';
+  const anonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxzdGptYW54enBzbnV4b25zcGZjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU2NzAxNjMsImV4cCI6MjEwMTI0NjE2M30.BVjCyTVWsODT6cpRKCSak5PI5a_4uhxifHP5z_ScqO8';
   const gallery = document.querySelector('.gallery');
   const legacyImages = [...gallery.querySelectorAll('.shot')].map((link, index) => ({href:link.href,src:link.querySelector('img').src,title:`Capture MT5 ${index + 1}`}));
   const escapeHtml = value => String(value || '').replace(/[&<>'"]/g, character => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[character]));
@@ -18,8 +19,12 @@
     return `${first} – ${last}`;
   };
   async function loadPublishedResults() {
-    const {data, error} = await sb.from('mt5_results').select('title,description,result_date,image_path').eq('is_published', true).order('result_date', {ascending:false}).order('created_at', {ascending:false});
-    const published = error || !data ? [] : data;
+    let published = [];
+    try {
+      const response = await fetch(`${apiUrl}/rest/v1/mt5_results?select=title,description,result_date,image_path&is_published=eq.true&order=result_date.desc,created_at.desc`, {headers:{apikey:anonKey,Authorization:`Bearer ${anonKey}`}});
+      if (!response.ok) throw new Error(`MT5 results feed ${response.status}: ${await response.text()}`);
+      published = await response.json();
+    } catch (error) { console.error(error); }
     const groups = new Map();
     published.forEach(item => { const start = mondayOf(item.result_date); const key = isoDate(start); if (!groups.has(key)) groups.set(key,{start,items:[]}); groups.get(key).items.push(item); });
     const currentWeekKey = isoDate(mondayOf(isoDate(new Date())));
@@ -29,7 +34,7 @@
     gallery.innerHTML = orderedGroups.map(([key, group], groupIndex) => {
       const isCurrent = key === currentWeekKey;
       const cards = group.items.map((item, index) => {
-        const imageUrl = sb.storage.from('mt5-results').getPublicUrl(item.image_path).data.publicUrl;
+        const imageUrl = `${apiUrl}/storage/v1/object/public/mt5-results/${item.image_path.split('/').map(encodeURIComponent).join('/')}`;
         const readableDate = new Date(`${item.result_date}T12:00:00`).toLocaleDateString('fr-CA', {year:'numeric',month:'long',day:'numeric'});
         const label = `${item.title} — ${readableDate}${item.description ? ` — ${item.description}` : ''}`;
         return `<article class="result-card"><a class="shot" href="${escapeHtml(imageUrl)}" target="_blank" rel="noopener"><img src="${escapeHtml(imageUrl)}" alt="${escapeHtml(label)}"${groupIndex > 0 || index > 3 ? ' loading="lazy"' : ''}></a><div class="result-meta"><strong>${escapeHtml(item.title)}</strong><time datetime="${item.result_date}">${escapeHtml(readableDate)}</time>${item.description ? `<p>${escapeHtml(item.description)}</p>` : ''}</div></article>`;
