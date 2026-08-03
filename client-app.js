@@ -2,6 +2,9 @@
   const PROJECT_URL = 'https://lstjmanxzpsnuxonspfc.supabase.co';
   const PUBLISHABLE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxzdGptYW54enBzbnV4b25zcGZjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU2NzAxNjMsImV4cCI6MjEwMTI0NjE2M30.BVjCyTVWsODT6cpRKCSak5PI5a_4uhxifHP5z_ScqO8';
   const sb = window.supabase.createClient(PROJECT_URL, PUBLISHABLE_KEY);
+  const params = new URLSearchParams(location.search);
+  const requestedReturn = params.get('return');
+  const safeReturn = requestedReturn === 'broker-account.html' ? requestedReturn : null;
   const loginForm = document.getElementById('loginForm');
   const signupForm = document.getElementById('signupForm');
   const layout = document.querySelector('.layout');
@@ -176,7 +179,7 @@
       email: document.getElementById('signupEmail').value,
       password: document.getElementById('signupPassword').value,
       options: {
-        emailRedirectTo: `${location.origin}${location.pathname}`,
+        emailRedirectTo: location.href.split('#')[0],
         data: { full_name: document.getElementById('signupName').value.trim() }
       }
     });
@@ -271,8 +274,10 @@
   async function routeSignedInUser(user) {
     const {data:admin} = await sb.from('admin_users').select('user_id').eq('user_id', user.id).maybeSingle();
     if (admin) { location.replace('admin.html'); return; }
+    if (safeReturn) { location.replace(safeReturn); return; }
     await loadDashboard(user);
   }
+  if (params.get('mode') === 'signup') document.getElementById('signupTab').click();
   sb.auth.onAuthStateChange((_event, session) => session?.user ? routeSignedInUser(session.user) : (dashboard.hidden = true, layout.hidden = false));
   sb.auth.getSession().then(({ data }) => data.session?.user && routeSignedInUser(data.session.user));
 })();
