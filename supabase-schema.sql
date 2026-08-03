@@ -72,11 +72,25 @@ begin
 end;
 $$;
 
+create or replace function public.verify_admin_pin(p_pin text)
+returns boolean
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  perform public.require_admin_pin(p_pin);
+  return true;
+end;
+$$;
+
 revoke all on function public.set_admin_pin(text) from public;
 revoke all on function public.has_admin_pin() from public;
 revoke all on function public.require_admin_pin(text) from public;
+revoke all on function public.verify_admin_pin(text) from public;
 grant execute on function public.set_admin_pin(text) to authenticated;
 grant execute on function public.has_admin_pin() to authenticated;
+grant execute on function public.verify_admin_pin(text) to authenticated;
 
 create table if not exists public.memberships (
   user_id uuid primary key references auth.users(id) on delete cascade,

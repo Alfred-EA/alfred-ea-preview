@@ -177,9 +177,7 @@
     }
     const demoReveal = event.target.closest('.demo-reveal');
     if (demoReveal) {
-      const accountRow=demoReveal.closest('.row');
-      demoReveal.closest('.actions').innerHTML='<div class="account-secret"><strong>Compte 1 · Mot de passe MT5</strong><input type="text" value="DEMO-ONLY-NOT-A-REAL-PASSWORD" readonly><small>Démonstration seulement · attaché au Compte 1</small></div>';
-      setTimeout(()=>{const secret=accountRow.querySelector('.account-secret');if(secret)secret.remove();},120000); return;
+      demoReveal.closest('.actions').innerHTML='<form class="credential-gate" data-demo="true"><label>PIN administrateur à 4 chiffres</label><input type="password" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" autocomplete="one-time-code" required><button class="button" type="submit">Vérifier et afficher le mot de passe démo</button><p class="muted gate-status"></p></form>'; return;
     }
     const reveal = event.target.closest('.reveal');
     if (reveal) {
@@ -211,6 +209,12 @@
     event.preventDefault();
     const submit=gate.querySelector('button'); const feedback=gate.querySelector('.gate-status'); const pin=gate.querySelector('input').value;
     submit.disabled=true; feedback.textContent='Vérification…';
+    if(gate.dataset.demo==='true'){
+      const {error}=await sb.rpc('verify_admin_pin',{p_pin:pin});
+      if(error){feedback.textContent='PIN incorrect, verrouillé ou non configuré.';submit.disabled=false;return;}
+      gate.innerHTML='<div class="account-secret"><strong>Compte 1 · Mot de passe MT5</strong><input type="text" value="DEMO-ONLY-NOT-A-REAL-PASSWORD" readonly><button class="button copy-account-secret" type="button">Copier</button><small>Démonstration seulement · effacement de l’écran dans deux minutes</small></div>';
+      const demoSecret=gate.querySelector('.account-secret');setTimeout(()=>{if(demoSecret)demoSecret.remove();},120000);return;
+    }
     const {data,error}=await sb.rpc('reveal_mt5_credential',{p_credential_id:gate.dataset.id,p_pin:pin});
     if(error){feedback.textContent='PIN incorrect, verrouillé, ou mot de passe MT5 indisponible.';submit.disabled=false;return;}
     gate.innerHTML=`<div class="account-secret"><strong>Mot de passe MT5 de ce compte</strong><input type="text" value="${escapeHtml(data)}" readonly><button class="button copy-account-secret" type="button">Copier</button><small>Consultation journalisée · effacement de l’écran dans deux minutes</small></div>`;
