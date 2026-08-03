@@ -14,6 +14,10 @@ create table if not exists public.admin_users (
   created_at timestamptz not null default now()
 );
 
+alter table public.admin_users add column if not exists pin_hash text;
+alter table public.admin_users add column if not exists pin_failed_attempts integer not null default 0;
+alter table public.admin_users add column if not exists pin_locked_until timestamptz;
+
 create or replace function public.is_admin()
 returns boolean
 language sql
@@ -26,6 +30,53 @@ $$;
 
 revoke all on function public.is_admin() from public;
 grant execute on function public.is_admin() to authenticated;
+
+create or replace function public.set_admin_pin(p_pin text)
+returns void
+language plpgsql
+security definer
+set search_path = public, extensions
+as $$
+begin
+  if not public.is_admin() then raise exception 'Administrator access required'; end if;
+  if p_pin !~ '^[0-9]{4}$' then raise exception 'PIN must contain exactly four digits'; end if;
+  update public.admin_users set pin_hash = crypt(p_pin, gen_salt('bf', 10)), pin_failed_attempts = 0, pin_locked_until = null where user_id = auth.uid();
+end;
+$$;
+
+create or replace function public.has_admin_pin()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$ select public.is_admin() and exists(select 1 from public.admin_users where user_id = auth.uid() and pin_hash is not null); $$;
+
+create or replace function public.require_admin_pin(p_pin text)
+returns void
+language plpgsql
+security definer
+set search_path = public, extensions
+as $$
+declare admin_row public.admin_users%rowtype;
+begin
+  if not public.is_admin() then raise exception 'Administrator access required'; end if;
+  select * into admin_row from public.admin_users where user_id = auth.uid() for update;
+  if admin_row.pin_hash is null then raise exception 'Administrator PIN is not configured'; end if;
+  if admin_row.pin_locked_until is not null and admin_row.pin_locked_until > now() then raise exception 'PIN temporarily locked'; end if;
+  if crypt(p_pin, admin_row.pin_hash) <> admin_row.pin_hash then
+    update public.admin_users set pin_failed_attempts = pin_failed_attempts + 1, pin_locked_until = case when pin_failed_attempts + 1 >= 5 then now() + interval '15 minutes' else null end where user_id = auth.uid();
+    raise exception 'Invalid administrator PIN';
+  end if;
+  update public.admin_users set pin_failed_attempts = 0, pin_locked_until = null where user_id = auth.uid();
+end;
+$$;
+
+revoke all on function public.set_admin_pin(text) from public;
+revoke all on function public.has_admin_pin() from public;
+revoke all on function public.require_admin_pin(text) from public;
+grant execute on function public.set_admin_pin(text) to authenticated;
+grant execute on function public.has_admin_pin() to authenticated;
 
 create table if not exists public.memberships (
   user_id uuid primary key references auth.users(id) on delete cascade,
@@ -186,12 +237,55 @@ begin
 end;
 $$;
 
+create or replace function public.reveal_mt5_credential(p_credential_id uuid, p_pin text)
+returns text
+language plpgsql
+security definer
+set search_path = public, vault
+as $$
+declare credential_row public.mt5_credentials%rowtype;
+declare encryption_key text;
+begin
+  perform public.require_admin_pin(p_pin);
+  select * into credential_row from public.mt5_credentials where id = p_credential_id;
+  if credential_row.id is null or credential_row.expires_at <= now() then
+    delete from public.mt5_credentials where id = p_credential_id;
+    raise exception 'Credential unavailable or expired';
+  end if;
+  select decrypted_secret into encryption_key from vault.decrypted_secrets where name = 'mt5_credential_key' limit 1;
+  insert into public.credential_access_log(client_id, admin_id, slot) values (credential_row.user_id, auth.uid(), credential_row.slot);
+  return pgp_sym_decrypt(credential_row.encrypted_password, encryption_key);
+end;
+$$;
+
+create or replace function public.approve_member(p_user_id uuid, p_pin text)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  perform public.require_admin_pin(p_pin);
+  insert into public.memberships(user_id, plan_name, status, starts_on, updated_at)
+  values (p_user_id, 'Abonnement Alfred-EA', 'active', current_date, now())
+  on conflict (user_id) do update set
+    plan_name = case when public.memberships.plan_name = 'À confirmer' then 'Abonnement Alfred-EA' else public.memberships.plan_name end,
+    status = 'active',
+    starts_on = coalesce(public.memberships.starts_on, current_date),
+    updated_at = now();
+end;
+$$;
+
 revoke all on function public.submit_mt5_credential(smallint, text) from public;
 revoke all on function public.claim_mt5_credential(uuid) from public;
 revoke all on function public.reveal_mt5_credential(uuid) from public;
+revoke all on function public.reveal_mt5_credential(uuid, text) from public;
+revoke all on function public.approve_member(uuid, text) from public;
 grant execute on function public.submit_mt5_credential(smallint, text) to authenticated;
 grant execute on function public.claim_mt5_credential(uuid) to authenticated;
-grant execute on function public.reveal_mt5_credential(uuid) to authenticated;
+revoke execute on function public.reveal_mt5_credential(uuid) from authenticated;
+grant execute on function public.reveal_mt5_credential(uuid, text) to authenticated;
+grant execute on function public.approve_member(uuid, text) to authenticated;
 
 create or replace function public.handle_new_user()
 returns trigger
