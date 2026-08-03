@@ -317,3 +317,43 @@ with check (bucket_id = 'client-documents' and public.is_admin());
 insert into public.admin_users(user_id)
 select id from auth.users where lower(email) = 'alfred.expert.advisor@gmail.com'
 on conflict (user_id) do nothing;
+
+-- Public MT5 result gallery managed from the administration dashboard.
+create table if not exists public.mt5_results (
+  id uuid primary key default gen_random_uuid(),
+  title text not null check (char_length(title) between 1 and 120),
+  description text check (description is null or char_length(description) <= 500),
+  result_date date not null default current_date,
+  image_path text not null unique,
+  is_published boolean not null default true,
+  created_by uuid not null default auth.uid() references auth.users(id),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists mt5_results_public_idx on public.mt5_results(is_published, result_date desc, created_at desc);
+alter table public.mt5_results enable row level security;
+drop policy if exists mt5_results_public_read on public.mt5_results;
+create policy mt5_results_public_read on public.mt5_results for select to anon, authenticated
+using (is_published or public.is_admin());
+drop policy if exists mt5_results_admin_insert on public.mt5_results;
+create policy mt5_results_admin_insert on public.mt5_results for insert to authenticated
+with check (public.is_admin() and created_by = auth.uid());
+drop policy if exists mt5_results_admin_update on public.mt5_results;
+create policy mt5_results_admin_update on public.mt5_results for update to authenticated
+using (public.is_admin()) with check (public.is_admin());
+drop policy if exists mt5_results_admin_delete on public.mt5_results;
+create policy mt5_results_admin_delete on public.mt5_results for delete to authenticated
+using (public.is_admin());
+
+insert into storage.buckets(id, name, public, file_size_limit, allowed_mime_types)
+values ('mt5-results','mt5-results',true,10485760,array['image/jpeg','image/png','image/webp'])
+on conflict (id) do update set public = true, file_size_limit = excluded.file_size_limit, allowed_mime_types = excluded.allowed_mime_types;
+
+drop policy if exists mt5_results_public_files on storage.objects;
+create policy mt5_results_public_files on storage.objects for select to public
+using (bucket_id = 'mt5-results');
+drop policy if exists mt5_results_admin_files on storage.objects;
+create policy mt5_results_admin_files on storage.objects for all to authenticated
+using (bucket_id = 'mt5-results' and public.is_admin())
+with check (bucket_id = 'mt5-results' and public.is_admin());

@@ -5,9 +5,65 @@
   const clients = document.getElementById('clients');
   const details = document.getElementById('clientDetails');
   let selectedClient = null;
+  const mt5Publisher = document.getElementById('mt5Publisher');
+  const mt5Form = document.getElementById('mt5ResultForm');
+  const mt5DropZone = document.getElementById('mt5DropZone');
+  const mt5Image = document.getElementById('mt5Image');
+  const mt5Preview = document.getElementById('mt5Preview');
+  const mt5Status = document.getElementById('mt5FormStatus');
+  const mt5List = document.getElementById('mt5ResultsList');
+  let selectedMt5File = null;
 
   const row = (title, subtitle, actions = '') => `<div class="row"><strong>${escapeHtml(title)}</strong><small>${escapeHtml(subtitle || '')}</small>${actions}</div>`;
   const escapeHtml = value => String(value || '').replace(/[&<>'"]/g, character => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[character]));
+
+  function selectMt5File(file) {
+    if (!file) return;
+    if (!['image/jpeg','image/png','image/webp'].includes(file.type) || file.size > 10485760) {
+      mt5Status.textContent = 'Choisissez une image JPG, PNG ou WebP de moins de 10 Mo.';
+      return;
+    }
+    selectedMt5File = file;
+    mt5Preview.src = URL.createObjectURL(file);
+    mt5Preview.hidden = false;
+    mt5DropZone.classList.add('has-image');
+    if (!document.getElementById('mt5Title').value) document.getElementById('mt5Title').value = file.name.replace(/\.[^.]+$/, '').replace(/[-_]+/g, ' ');
+    mt5Status.textContent = '';
+  }
+
+  async function loadMt5Results() {
+    const {data, error} = await sb.from('mt5_results').select('id,title,result_date,image_path,is_published,created_at').order('result_date', {ascending:false}).order('created_at', {ascending:false});
+    if (error) { mt5List.innerHTML = '<p class="muted">La section doit d’abord être activée dans Supabase.</p>'; return; }
+    if (!data.length) { mt5List.innerHTML = '<p class="muted">Aucune capture enregistrée.</p>'; return; }
+    mt5List.innerHTML = data.map(item => {
+      const url = sb.storage.from('mt5-results').getPublicUrl(item.image_path).data.publicUrl;
+      return `<article class="result-admin-row" data-id="${item.id}" data-path="${escapeHtml(item.image_path)}"><img src="${escapeHtml(url)}" alt=""><div><strong>${escapeHtml(item.title)}</strong><small>${new Date(`${item.result_date}T12:00:00`).toLocaleDateString('fr-CA')} · ${item.is_published ? 'Publié' : 'Masqué'}</small></div><div class="result-admin-actions"><button class="button toggle-result" data-published="${item.is_published}">${item.is_published ? 'Masquer' : 'Publier'}</button><button class="button danger delete-result">Supprimer</button></div></article>`;
+    }).join('');
+  }
+
+  mt5Image.addEventListener('change', () => selectMt5File(mt5Image.files[0]));
+  ['dragenter','dragover'].forEach(name => mt5DropZone.addEventListener(name, event => { event.preventDefault(); mt5DropZone.classList.add('dragging'); }));
+  ['dragleave','drop'].forEach(name => mt5DropZone.addEventListener(name, event => { event.preventDefault(); mt5DropZone.classList.remove('dragging'); }));
+  mt5DropZone.addEventListener('drop', event => selectMt5File(event.dataTransfer.files[0]));
+  mt5DropZone.addEventListener('keydown', event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); mt5Image.click(); } });
+  mt5Form.addEventListener('submit', async event => {
+    event.preventDefault();
+    if (!selectedMt5File) { mt5Status.textContent = 'Ajoutez d’abord une capture MT5.'; return; }
+    const submit = mt5Form.querySelector('button[type="submit"]'); submit.disabled = true; mt5Status.textContent = 'Téléversement et publication…';
+    const extension = selectedMt5File.name.split('.').pop().toLowerCase();
+    const path = `${crypto.randomUUID()}.${extension}`;
+    const {error: uploadError} = await sb.storage.from('mt5-results').upload(path, selectedMt5File, {contentType:selectedMt5File.type, upsert:false});
+    if (uploadError) { mt5Status.textContent = 'La capture n’a pas pu être téléversée.'; submit.disabled = false; return; }
+    const record = {title:document.getElementById('mt5Title').value.trim(),description:document.getElementById('mt5Description').value.trim() || null,result_date:document.getElementById('mt5Date').value,image_path:path,is_published:document.getElementById('mt5Published').checked};
+    const {error} = await sb.from('mt5_results').insert(record);
+    if (error) { await sb.storage.from('mt5-results').remove([path]); mt5Status.textContent = 'La publication n’a pas pu être enregistrée.'; submit.disabled = false; return; }
+    mt5Form.reset(); document.getElementById('mt5Date').valueAsDate = new Date(); selectedMt5File = null; mt5Preview.hidden = true; mt5Preview.removeAttribute('src'); mt5DropZone.classList.remove('has-image'); submit.disabled = false; mt5Status.textContent = record.is_published ? 'Capture publiée sur la page Résultats MT5.' : 'Capture enregistrée comme masquée.'; await loadMt5Results();
+  });
+  mt5List.addEventListener('click', async event => {
+    const article = event.target.closest('.result-admin-row'); if (!article) return;
+    if (event.target.closest('.toggle-result')) { const next = event.target.dataset.published !== 'true'; const {error} = await sb.from('mt5_results').update({is_published:next}).eq('id', article.dataset.id); if (!error) await loadMt5Results(); }
+    if (event.target.closest('.delete-result')) { if (!confirm('Supprimer définitivement cette capture?')) return; const {error} = await sb.from('mt5_results').delete().eq('id', article.dataset.id); if (!error) { await sb.storage.from('mt5-results').remove([article.dataset.path]); await loadMt5Results(); } }
+  });
 
   function loadDemoClient() {
     selectedClient = {id:'demo', full_name:'Client Démo'};
@@ -68,7 +124,9 @@
     if (!admin) { status.textContent = 'Accès refusé. Ce compte n’est pas administrateur.'; return; }
     const {data:profiles, error} = await sb.from('profiles').select('id,full_name,created_at').order('created_at', {ascending:false});
     if (error) { status.textContent = 'Impossible de charger les dossiers.'; return; }
-    status.hidden = true; grid.hidden = false; clients.replaceChildren();
+    status.hidden = true; grid.hidden = false; mt5Publisher.hidden = false; clients.replaceChildren();
+    document.getElementById('mt5Date').valueAsDate = new Date();
+    loadMt5Results();
     const demoButton=document.createElement('button'); demoButton.className='client demo-client'; demoButton.innerHTML='Client Démo<small>Aperçu administrateur · aucune donnée réelle</small>'; demoButton.addEventListener('click',loadDemoClient); clients.appendChild(demoButton);
     profiles.forEach(profile => { const button=document.createElement('button'); button.className='client'; button.innerHTML=`${escapeHtml(profile.full_name || 'Client')}<small>${escapeHtml(profile.id)}</small>`; button.addEventListener('click',()=>loadClient(profile)); clients.appendChild(button); });
     loadDemoClient();
