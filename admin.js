@@ -94,7 +94,7 @@
       sb.from('mt5_accounts').select('slot,broker,server_name,account_number').eq('user_id', client.id).order('slot'),
       sb.from('documents').select('id,display_name,category,storage_path').eq('client_id', client.id).order('created_at', {ascending:false}),
       sb.from('mt5_credentials').select('id,slot,expires_at,created_at').eq('user_id', client.id).order('slot'),
-      sb.from('memberships').select('plan_name,status,starts_on,renews_on').eq('user_id', client.id).maybeSingle(),
+      sb.from('memberships').select('plan_name,status,starts_on,renews_on,updated_at').eq('user_id', client.id).maybeSingle(),
       sb.from('invoices').select('amount_cents,currency,issued_on,status').eq('client_id', client.id).order('issued_on', {ascending:false}).limit(1).maybeSingle(),
       sb.from('messages').select('body,created_at,sender_id').eq('client_id', client.id).order('created_at', {ascending:true})
     ]);
@@ -122,13 +122,40 @@
     if (!session) { location.href = 'client-space.html'; return; }
     const {data:admin} = await sb.from('admin_users').select('user_id').eq('user_id', session.user.id).maybeSingle();
     if (!admin) { status.textContent = 'Accès refusé. Ce compte n’est pas administrateur.'; return; }
-    const {data:profiles, error} = await sb.from('profiles').select('id,full_name,created_at').order('created_at', {ascending:false});
+    const [{data:profiles, error},{data:memberships, error:membershipError}] = await Promise.all([
+      sb.from('profiles').select('id,full_name,created_at').order('created_at', {ascending:false}),
+      sb.from('memberships').select('user_id,plan_name,status,starts_on,renews_on,updated_at')
+    ]);
     if (error) { status.textContent = 'Impossible de charger les dossiers.'; return; }
+    if (membershipError) { status.textContent = 'Impossible de charger les abonnements.'; return; }
     status.hidden = true; grid.hidden = false; mt5Publisher.hidden = false; clients.replaceChildren();
     document.getElementById('mt5Date').valueAsDate = new Date();
     loadMt5Results();
     const demoButton=document.createElement('button'); demoButton.className='client demo-client'; demoButton.innerHTML='Client Démo<small>Aperçu administrateur · aucune donnée réelle</small>'; demoButton.addEventListener('click',loadDemoClient); clients.appendChild(demoButton);
-    profiles.forEach(profile => { const button=document.createElement('button'); button.className='client'; button.innerHTML=`${escapeHtml(profile.full_name || 'Client')}<small>${escapeHtml(profile.id)}</small>`; button.addEventListener('click',()=>loadClient(profile)); clients.appendChild(button); });
+    const membershipsByUser = new Map((memberships || []).map(membership => [membership.user_id, membership]));
+    const groups = [
+      {key:'new',title:'Nouveaux membres',items:[]},
+      {key:'active',title:'Abonnements actifs',items:[]},
+      {key:'unpaid',title:'Non payés',items:[]},
+      {key:'inactive',title:'Inactifs',items:[]}
+    ];
+    profiles.forEach(profile => {
+      const membership = membershipsByUser.get(profile.id);
+      const statusKey = membership?.status === 'active' ? 'active' : membership?.status === 'paused' ? 'unpaid' : ['cancelled','expired'].includes(membership?.status) ? 'inactive' : 'new';
+      groups.find(group => group.key === statusKey).items.push({profile,membership});
+    });
+    const formatDate = value => value ? new Date(value.length === 10 ? `${value}T12:00:00` : value).toLocaleDateString('fr-CA', {year:'numeric',month:'long',day:'numeric'}) : 'date inconnue';
+    groups.forEach(group => {
+      const section = document.createElement('section'); section.className=`client-group client-group-${group.key}`;
+      section.innerHTML=`<div class="client-group-title"><strong>${group.title}</strong><span class="client-count">${group.items.length}</span></div>`;
+      if (!group.items.length) section.insertAdjacentHTML('beforeend','<p class="client-group-empty">Aucun client</p>');
+      group.items.forEach(({profile,membership}) => {
+        const button=document.createElement('button'); button.className='client';
+        const detail = group.key === 'inactive' ? `Inactif depuis le ${formatDate(membership.updated_at)}` : group.key === 'active' ? `${membership.plan_name} · renouvellement ${formatDate(membership.renews_on)}` : group.key === 'unpaid' ? `Paiement en attente · depuis le ${formatDate(membership.updated_at)}` : `Inscrit le ${formatDate(profile.created_at)}`;
+        button.innerHTML=`${escapeHtml(profile.full_name || 'Client')}<small class="client-status">${escapeHtml(detail)}</small>`; button.addEventListener('click',()=>loadClient(profile)); section.appendChild(button);
+      });
+      clients.appendChild(section);
+    });
     loadDemoClient();
   }
 
