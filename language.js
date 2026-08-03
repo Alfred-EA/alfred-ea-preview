@@ -16,6 +16,8 @@
   };
   const originals=new WeakMap(); let applying=false;
   const replaceDynamic=s=>s
+    .replace(/^NIVEAU\b/,'TIER')
+    .replace(/^Niveau\b/,'Tier')
     .replace(/^Bonjour,?\s*/,'Hello, ')
     .replace(/^Membre depuis le /,'Member since ')
     .replace(/^Actif · Renouvellement le /,'Active · Renews on ')
