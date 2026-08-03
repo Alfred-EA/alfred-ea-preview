@@ -212,15 +212,24 @@
     if(gate.dataset.demo==='true'){
       const {error}=await sb.rpc('verify_admin_pin',{p_pin:pin});
       if(error){feedback.textContent='PIN incorrect, verrouillé ou non configuré.';submit.disabled=false;return;}
-      gate.innerHTML='<div class="account-secret"><strong>Compte 1 · Mot de passe MT5</strong><input type="text" value="DEMO-ONLY-NOT-A-REAL-PASSWORD" readonly><button class="button copy-account-secret" type="button">Copier</button><small>Démonstration seulement · effacement de l’écran dans deux minutes</small></div>';
-      const demoSecret=gate.querySelector('.account-secret');setTimeout(()=>{if(demoSecret)demoSecret.remove();},120000);return;
+      gate.innerHTML='<div class="account-secret"><strong>Compte 1 · Mot de passe MT5</strong><input type="text" value="DEMO-ONLY-NOT-A-REAL-PASSWORD" readonly><button class="button copy-account-secret" type="button">Copier</button><button class="button hide-account-secret" type="button">Masquer le mot de passe</button><small>Démonstration seulement · le PIN sera requis pour l’afficher de nouveau</small></div>';
+      return;
     }
     const {data,error}=await sb.rpc('reveal_mt5_credential',{p_credential_id:gate.dataset.id,p_pin:pin});
     if(error){feedback.textContent='PIN incorrect, verrouillé, ou mot de passe MT5 indisponible.';submit.disabled=false;return;}
-    gate.innerHTML=`<div class="account-secret"><strong>Mot de passe MT5 de ce compte</strong><input type="text" value="${escapeHtml(data)}" readonly><button class="button copy-account-secret" type="button">Copier</button><small>Consultation journalisée · effacement de l’écran dans deux minutes</small></div>`;
-    const accountSecret=gate.querySelector('.account-secret'); setTimeout(()=>{if(accountSecret)accountSecret.remove();},120000);
+    gate.innerHTML=`<div class="account-secret"><strong>Mot de passe MT5 de ce compte</strong><input type="text" value="${escapeHtml(data)}" readonly><button class="button copy-account-secret" type="button">Copier</button><button class="button hide-account-secret" type="button">Masquer le mot de passe</button><small>Consultation journalisée · le PIN sera requis pour l’afficher de nouveau</small></div>`;
   });
-  details.addEventListener('click',event=>{const copy=event.target.closest('.copy-account-secret');if(copy)navigator.clipboard.writeText(copy.closest('.account-secret').querySelector('input').value);});
+  details.addEventListener('click',event=>{
+    const copy=event.target.closest('.copy-account-secret');
+    if(copy){navigator.clipboard.writeText(copy.closest('.account-secret').querySelector('input').value);return;}
+    const hide=event.target.closest('.hide-account-secret');
+    if(!hide)return;
+    const gate=hide.closest('.credential-gate');
+    const actions=gate.closest('.actions');
+    actions.innerHTML=gate.dataset.demo==='true'
+      ? '<button class="button demo-reveal">Simuler l’accès administrateur</button>'
+      : `<button class="button reveal" data-id="${gate.dataset.id}">Accéder avec mon PIN administrateur</button>`;
+  });
   adminPinForm.addEventListener('submit',async event=>{event.preventDefault();const input=document.getElementById('adminPinInput');const pin=input.value.trim();if(!/^\d{4}$/.test(pin)){adminPinStatus.textContent='Le PIN doit contenir exactement 4 chiffres.';return;}const button=adminPinForm.querySelector('button');button.disabled=true;adminPinStatus.textContent='Enregistrement…';const {error}=await sb.rpc('set_admin_pin',{p_pin:pin});button.disabled=false;if(error){adminPinStatus.textContent='Le PIN n’a pas pu être enregistré.';return;}input.value='';adminPinStatus.textContent='PIN administrateur enregistré.';document.getElementById('adminPinHelp').textContent='Votre PIN protège les approbations et les mots de passe MT5. Vous pouvez le modifier ici.';});
   document.getElementById('logout').addEventListener('click',async()=>{await sb.auth.signOut();location.href='client-space.html';});
   init();
