@@ -144,14 +144,13 @@
       const statusKey = membership?.status === 'active' ? 'active' : membership?.status === 'paused' ? 'unpaid' : ['cancelled','expired'].includes(membership?.status) ? 'inactive' : 'new';
       groups.find(group => group.key === statusKey).items.push({profile,membership});
     });
-    const formatDate = value => value ? new Date(value.length === 10 ? `${value}T12:00:00` : value).toLocaleDateString('fr-CA', {year:'numeric',month:'long',day:'numeric'}) : 'date inconnue';
     groups.forEach(group => {
       const section = document.createElement('details'); section.className=`client-group client-group-${group.key}`; section.open = true;
       section.innerHTML=`<summary class="client-group-title"><strong>${group.title}</strong><span class="client-count">${group.items.length}</span></summary>`;
       if (!group.items.length) section.insertAdjacentHTML('beforeend','<p class="client-group-empty">Aucun client</p>');
       group.items.forEach(({profile,membership}) => {
         const button=document.createElement('button'); button.className='client';
-        const detail = group.key === 'inactive' ? `Inactif depuis le ${formatDate(membership.updated_at)}` : group.key === 'active' ? `${membership.plan_name} · renouvellement ${formatDate(membership.renews_on)}` : group.key === 'unpaid' ? `Paiement en attente · depuis le ${formatDate(membership.updated_at)}` : `Inscrit le ${formatDate(profile.created_at)}`;
+        const detail = group.key === 'inactive' ? 'Abonnement inactif' : group.key === 'active' ? membership.plan_name : group.key === 'unpaid' ? 'Paiement en attente' : 'Nouveau membre';
         button.innerHTML=`${escapeHtml(profile.full_name || 'Client')}<small class="client-status">${escapeHtml(detail)}</small>`; button.addEventListener('click',()=>loadClient(profile)); section.appendChild(button);
       });
       clients.appendChild(section);
