@@ -150,8 +150,8 @@
       if (!group.items.length) section.insertAdjacentHTML('beforeend','<p class="client-group-empty">Aucun client</p>');
       group.items.forEach(({profile,membership}) => {
         const button=document.createElement('button'); button.className='client';
-        const detail = group.key === 'inactive' ? 'Abonnement inactif' : group.key === 'active' ? membership.plan_name : group.key === 'unpaid' ? 'Paiement en attente' : 'Nouveau membre';
-        button.innerHTML=`${escapeHtml(profile.full_name || 'Client')}<small class="client-status">${escapeHtml(detail)}</small>`; button.addEventListener('click',()=>loadClient(profile)); section.appendChild(button);
+        const detail = group.key === 'inactive' ? 'Abonnement inactif' : group.key === 'active' ? membership.plan_name : group.key === 'unpaid' ? 'Paiement en attente' : '';
+        button.innerHTML=`${escapeHtml(profile.full_name || 'Client')}${detail ? `<small class="client-status">${escapeHtml(detail)}</small>` : ''}`; button.addEventListener('click',()=>loadClient(profile)); section.appendChild(button);
       });
       clients.appendChild(section);
     });
