@@ -160,7 +160,6 @@
     document.getElementById('adminCurrentPinInput').required = Boolean(hasPin);
     document.getElementById('mt5Date').valueAsDate = new Date();
     loadMt5Results();
-    const demoButton=document.createElement('button'); demoButton.className='client demo-client'; demoButton.innerHTML='Client Démo<small>Aperçu administrateur · aucune donnée réelle</small>'; demoButton.addEventListener('click',loadDemoClient); clients.appendChild(demoButton);
     const membershipsByUser = new Map((memberships || []).map(membership => [membership.user_id, membership]));
     const groups = [
       {key:'new',title:'Nouveaux membres',items:[]},
@@ -184,7 +183,6 @@
       });
       clients.appendChild(section);
     });
-    loadDemoClient();
   }
 
   details.addEventListener('click', async event => {
