@@ -84,8 +84,8 @@
         ${row('Prochain renouvellement', '15 septembre 2026')}
       </div>
       <div class="section"><h2>Comptes MT5</h2>
-        ${row('Compte 1 · STARTRADER', '12345678 · STARTRADER-Live', '<div class="actions"><button class="button demo-reveal">Simuler l’accès administrateur</button></div>')}
-        ${row('Compte 2 · Vantage Markets (USA only)', '87654321 · VantageInternational-Live', '<small>Aucun mot de passe temporaire disponible</small>')}
+        ${row('Compte 1 — STARTRADER', '12345678 · STARTRADER-Live', '<div class="actions"><button class="button demo-reveal">Simuler l’accès administrateur</button></div>')}
+        ${row('Compte 2 — Vantage Markets (USA only)', '87654321 · VantageInternational-Live', '<small>Aucun mot de passe temporaire disponible</small>')}
       </div>
       <div class="section"><h2>Documents privés</h2>
         ${row('Permis de conduire — recto', 'drivers_license_front', '<small>Document fictif</small>')}
@@ -126,7 +126,7 @@
     html += (accounts.data || []).map(account => {
       const credential = (credentials.data || []).find(item => item.slot === account.slot);
       const action = credential ? `<div class="actions"><button class="button reveal" data-id="${credential.id}">Accéder avec mon PIN administrateur</button></div>` : '<small>Aucun mot de passe disponible</small>';
-      return row(`Compte ${account.slot} · ${account.broker}`, `${account.account_number} · ${account.server_name || 'Serveur non indiqué'}`, action);
+      return row(`Compte ${account.slot} — ${account.broker}`, `${account.account_number} · ${account.server_name || 'Serveur non indiqué'}`, action);
     }).join('') || '<p class="muted">Aucun compte enregistré.</p>';
     html += '</div><div class="section"><h2>Documents privés</h2>';
     html += (documents.data || []).map(document => {
