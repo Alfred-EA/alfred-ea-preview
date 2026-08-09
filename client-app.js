@@ -117,25 +117,48 @@
     amount.textContent = (invoice.amount_cents / 100).toLocaleString('fr-CA', { style: 'currency', currency: invoice.currency });
     card.append(header, description, amount);
     if (invoice.file_path) {
+      const actions = document.createElement('div');
+      actions.className = 'invoice-pdf-actions';
+      const previewButton = document.createElement('button');
+      previewButton.type = 'button';
+      previewButton.className = 'invoice-preview-button';
+      previewButton.textContent = 'Agrandir la facture';
+      previewButton.setAttribute('aria-expanded', 'false');
       const pdfLink = document.createElement('a');
       pdfLink.className = 'invoice-pdf-link';
-      pdfLink.textContent = 'Voir le PDF';
+      pdfLink.textContent = 'Ouvrir le PDF';
       pdfLink.target = '_blank';
       pdfLink.rel = 'noopener';
+      const preview = document.createElement('div');
+      preview.className = 'invoice-pdf-preview';
+      preview.hidden = true;
+      const frame = document.createElement('iframe');
+      frame.title = `Facture ${invoice.invoice_number}`;
+      preview.appendChild(frame);
+      const setPdfUrl = url => {
+        pdfLink.href = url;
+        frame.src = url;
+        pdfLink.removeAttribute('aria-disabled');
+        previewButton.disabled = false;
+      };
+      previewButton.addEventListener('click', () => {
+        preview.hidden = !preview.hidden;
+        previewButton.setAttribute('aria-expanded', String(!preview.hidden));
+        previewButton.textContent = preview.hidden ? 'Agrandir la facture' : 'Réduire la facture';
+      });
       if (invoice.file_path.startsWith('data:application/pdf')) {
-        pdfLink.href = invoice.file_path;
+        setPdfUrl(invoice.file_path);
         pdfLink.download = `${invoice.invoice_number}.pdf`;
       } else {
         pdfLink.href = '#';
         pdfLink.setAttribute('aria-disabled', 'true');
+        previewButton.disabled = true;
         sb.storage.from('client-documents').createSignedUrl(invoice.file_path, 600).then(({ data }) => {
-          if (data?.signedUrl) {
-            pdfLink.href = data.signedUrl;
-            pdfLink.removeAttribute('aria-disabled');
-          }
+          if (data?.signedUrl) setPdfUrl(data.signedUrl);
         });
       }
-      card.appendChild(pdfLink);
+      actions.append(previewButton, pdfLink);
+      card.append(actions, preview);
     }
     container.appendChild(card);
   };
