@@ -254,9 +254,9 @@
         if (accountInput.dataset.saved !== 'true' && mt5_password.length < 4) return document.getElementById('mt5Status').textContent = `Le mot de passe MT5 est requis pour le nouveau compte ${slot}.`;
         accounts.push({ user_id: user.id, slot, broker, server_name: server_name || null, account_number, updated_at: new Date().toISOString() });
       }
-      const { error: deleteError } = await sb.from('mt5_accounts').delete().eq('user_id', user.id);
-      const { error: insertError } = !deleteError && accounts.length ? await sb.from('mt5_accounts').insert(accounts) : { error: null };
-      if (deleteError || insertError) { document.getElementById('mt5Status').textContent = 'Impossible d’enregistrer pour le moment.'; return; }
+      if (!accounts.length) { document.getElementById('mt5Status').textContent = 'Ajoutez au moins un compte courtier.'; return; }
+      const { error: saveError } = await sb.from('mt5_accounts').upsert(accounts, { onConflict: 'user_id,slot' });
+      if (saveError) { document.getElementById('mt5Status').textContent = 'Impossible d’enregistrer les comptes pour le moment.'; return; }
       for (let slot = 1; slot <= 5; slot += 1) {
         const passwordInput = document.getElementById(`mt5Password${slot}`);
         if (!passwordInput.value) continue;
@@ -268,7 +268,7 @@
         document.getElementById(`account${account.slot}`).dataset.saved = 'true';
         document.getElementById(`mt5Password${account.slot}`).placeholder = 'Laisser vide pour conserver';
       });
-      document.getElementById('mt5Status').textContent = 'Vos comptes sont enregistrés. Tout mot de passe fourni reste disponible jusqu’à son remplacement et chaque consultation administrateur sera vérifiée et journalisée.';
+      document.getElementById('mt5Status').textContent = `${accounts.length} compte${accounts.length > 1 ? 's' : ''} courtier${accounts.length > 1 ? 's' : ''} enregistré${accounts.length > 1 ? 's' : ''}. Tout mot de passe fourni reste disponible jusqu’à son remplacement.`;
       return;
     }
     if (event.target.id === 'licenseForm') {
