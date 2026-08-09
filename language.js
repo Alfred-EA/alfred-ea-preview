@@ -1,6 +1,7 @@
 (()=>{
   const key='alfred-ea-language';
   const en={
+    'Paramètres de connexion':'Login settings','Confirmez votre mot de passe actuel avant de modifier votre adresse courriel ou votre mot de passe.':'Confirm your current password before changing your email address or password.','Nouvelle adresse courriel':'New email address','Mot de passe actuel':'Current password','Nouveau mot de passe':'New password','Laisser vide pour conserver':'Leave blank to keep current','Confirmer le nouveau mot de passe':'Confirm new password','Enregistrer mes changements':'Save my changes','Aperçu : les paramètres ne sont pas modifiés en mode démo.':'Preview: settings are not changed in demo mode.','Reconnectez-vous avant de modifier vos paramètres.':'Sign in again before changing your settings.','Aucun changement à enregistrer.':'No changes to save.','Le nouveau mot de passe doit contenir au moins 10 caractères et les deux champs doivent correspondre.':'The new password must contain at least 10 characters and both fields must match.','Vérification sécurisée…':'Secure verification…','Le mot de passe actuel est incorrect.':'The current password is incorrect.','Changements enregistrés. Vérifiez votre nouvelle adresse courriel pour confirmer le changement.':'Changes saved. Check your new email address to confirm the change.','Votre mot de passe a été modifié.':'Your password has been changed.',
     'Accueil':'Home','Calculatrice du rendement':'Return calculator','Calculateur de rendement':'Return calculator','Compte courtier':'Broker account','Ouvrir un compte courtier':'Open an account','Abonnement':'Membership','Résultats MT5':'MT5 Results','Informations':'Information','Espace client':'Client area','Administration':'Administration',
     'Semaine':'Week','Mois':'Month','Depuis ouverture':'Since inception','Prix d’ouverture':'Opening price','Prix actuel':'Current price','Profit flottant':'Floating profit','Position active':'Active position','POSITIONS SIMULÉES · ACTIF':'SIMULATED POSITIONS · ACTIVE',
     'Votre robot de trading,':'Your trading robot,','discipliné par conception.':'disciplined by design.','Une stratégie automatisée fondée sur la performance,':'An automated strategy built on performance,','la transparence et le contrôle du risque.':'transparency and risk control.','Commencer avec Alfred-EA':'Get started with Alfred-EA',
@@ -28,7 +29,8 @@
     .replace(/^Compte (\d+) ·/,'Account $1 ·')
     .replace(/^Aucun compte enregistré\.$/,'No account registered.')
     .replace(/^Aucun document\.$/,'No documents.')
-    .replace(/^Aucun message pour ce client\.$/,'No messages for this client.');
+    .replace(/^Aucun message pour ce client\.$/,'No messages for this client.')
+    .replace(/^La modification a échoué : /,'Update failed: ');
   function translated(value){const trimmed=value.trim();const result=en[trimmed]||replaceDynamic(trimmed);return value.replace(trimmed,result)}
   function apply(root=document){
     applying=true; const lang=localStorage.getItem(key)==='en'?'en':'fr'; document.documentElement.lang=lang;
