@@ -83,6 +83,34 @@
     container.appendChild(row);
   };
 
+  const addInvoiceCard = (container, invoice) => {
+    const card = document.createElement('article');
+    card.className = 'invoice-card';
+    const header = document.createElement('div');
+    header.className = 'invoice-card-head';
+    const brand = document.createElement('span');
+    brand.className = 'invoice-brand';
+    brand.textContent = 'AE';
+    const identity = document.createElement('div');
+    const number = document.createElement('strong');
+    number.textContent = invoice.invoice_number;
+    const date = document.createElement('small');
+    date.textContent = invoice.issued_on ? new Date(`${invoice.issued_on}T12:00:00`).toLocaleDateString('fr-CA', { year: 'numeric', month: 'long', day: 'numeric' }) : 'Date à confirmer';
+    identity.append(number, date);
+    const status = document.createElement('span');
+    status.className = `invoice-status invoice-${invoice.status}`;
+    status.textContent = ({ paid: 'Payée', open: 'À payer', overdue: 'En retard', void: 'Annulée', draft: 'Brouillon' })[invoice.status] || invoice.status;
+    header.append(brand, identity, status);
+    const description = document.createElement('p');
+    description.className = 'invoice-description';
+    description.textContent = invoice.description || 'Abonnement Alfred-EA';
+    const amount = document.createElement('strong');
+    amount.className = 'invoice-amount';
+    amount.textContent = (invoice.amount_cents / 100).toLocaleString('fr-CA', { style: 'currency', currency: invoice.currency });
+    card.append(header, description, amount);
+    container.appendChild(card);
+  };
+
   const addMessageBubble = (container, body, meta, own = false, imageUrl = '', imageName = '') => {
     const bubble = document.createElement('div');
     bubble.className = `chat-bubble ${own ? 'chat-own' : 'chat-admin'}`;
@@ -129,8 +157,8 @@
     addMessageBubble(messageList, 'Votre abonnement est actif et votre dossier est à jour.', 'Équipe Alfred-EA · Aujourd’hui');
     const invoiceList = document.getElementById('invoiceList');
     invoiceList.replaceChildren();
-    addTextRow(invoiceList, 'AE-2026-002', '60,00 $ CA · Payée');
-    addTextRow(invoiceList, 'AE-2026-001', '60,00 $ CA · Payée');
+    addInvoiceCard(invoiceList, { invoice_number: 'AE-2026-002', description: 'Abonnement Alfred-EA', amount_cents: 6000, currency: 'CAD', status: 'paid', issued_on: '2026-08-15' });
+    addInvoiceCard(invoiceList, { invoice_number: 'AE-2026-001', description: 'Abonnement Alfred-EA', amount_cents: 6000, currency: 'CAD', status: 'paid', issued_on: '2026-07-15' });
     const documentList = document.getElementById('documentList');
     documentList.replaceChildren();
     addTextRow(documentList, 'Convention de service', 'Contrat');
@@ -180,7 +208,7 @@
     if (!messagesResult.data?.length) messageList.innerHTML = '<p>Aucun message.</p>';
     const invoiceList = document.getElementById('invoiceList');
     invoiceList.replaceChildren();
-    (invoicesResult.data || []).forEach(invoice => addTextRow(invoiceList, invoice.invoice_number, `${(invoice.amount_cents / 100).toLocaleString('fr-CA', { style: 'currency', currency: invoice.currency })} · ${invoice.status}`));
+    (invoicesResult.data || []).forEach(invoice => addInvoiceCard(invoiceList, invoice));
     if (!invoicesResult.data?.length) invoiceList.innerHTML = '<p>Aucune facture disponible.</p>';
     const documentList = document.getElementById('documentList');
     documentList.replaceChildren();
