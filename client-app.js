@@ -36,7 +36,7 @@
       <article class="dashboard-card"><span>DOCUMENTS</span><strong id="documentCount">0</strong><p>Fichiers privés</p></article>
     </div>
     <div class="dashboard-columns">
-      <article class="dashboard-panel"><h2>Discussion avec Alfred-EA</h2><p class="chat-note">Vos messages restent dans votre dossier privé et sont visibles par l’équipe administratrice.</p><div class="message-list chat-list" id="messageList"><p>Aucun message.</p></div><form id="messageForm" class="message-form"><textarea id="messageBody" maxlength="5000" placeholder="Écrire un message privé à Alfred-EA" required></textarea><button class="submit" type="submit">Envoyer le message</button></form></article>
+      <article class="dashboard-panel"><h2>Discussion avec Alfred-EA</h2><p class="chat-note">Vos messages restent dans votre dossier privé et sont visibles par l’équipe administratrice.</p><div class="message-list chat-list" id="messageList"><p>Aucun message.</p></div><form id="messageForm" class="message-form"><textarea id="messageBody" maxlength="5000" placeholder="Écrire un message privé à Alfred-EA"></textarea><label class="message-image-picker">Ajouter une image privée (JPG, PNG ou WebP · 10 Mo max.)<input id="messageImage" type="file" accept="image/jpeg,image/png,image/webp"></label><button class="submit" type="submit">Envoyer le message</button><p id="messageStatus" class="document-upload-status"></p></form></article>
       <article class="dashboard-panel"><h2>Mes factures</h2><div id="invoiceList"><p>Aucune facture disponible.</p></div><button class="dashboard-action subscription-manage" id="manageSubscriptionButton" type="button" aria-expanded="false" aria-controls="subscriptionManagePanel">Gérer mon abonnement</button><div class="subscription-manage-panel" id="subscriptionManagePanel" hidden><p>Modifiez votre niveau ou demandez l’annulation avant le prochain renouvellement.</p><div class="subscription-actions"><a class="subscription-link" href="subscription.html">Voir ou modifier mon niveau</a><button class="subscription-cancel" id="cancelSubscriptionButton" type="button">Demander l’annulation</button></div><p id="subscriptionManageStatus">L’annulation est confirmée par l’équipe Alfred-EA avant de prendre effet.</p></div><h2 class="section-space">Mes documents</h2><div id="documentList"><p>Aucun document disponible.</p></div></article>
     </div>
     <div class="secure-sections">
@@ -83,14 +83,30 @@
     container.appendChild(row);
   };
 
-  const addMessageBubble = (container, body, meta, own = false) => {
+  const addMessageBubble = (container, body, meta, own = false, imageUrl = '', imageName = '') => {
     const bubble = document.createElement('div');
     bubble.className = `chat-bubble ${own ? 'chat-own' : 'chat-admin'}`;
-    const message = document.createElement('p');
-    message.textContent = body;
+    if (body) {
+      const message = document.createElement('p');
+      message.textContent = body;
+      bubble.appendChild(message);
+    }
+    if (imageUrl) {
+      const link = document.createElement('a');
+      link.href = imageUrl;
+      link.target = '_blank';
+      link.rel = 'noopener';
+      const image = document.createElement('img');
+      image.src = imageUrl;
+      image.alt = imageName || 'Image privée';
+      image.loading = 'lazy';
+      image.style.cssText = 'display:block;max-width:min(100%,520px);max-height:420px;margin:.65rem 0;border-radius:12px;object-fit:contain';
+      link.appendChild(image);
+      bubble.appendChild(link);
+    }
     const small = document.createElement('small');
     small.textContent = meta;
-    bubble.append(message, small);
+    bubble.appendChild(small);
     container.appendChild(bubble);
   };
 
@@ -141,7 +157,7 @@
     const [profileResult, membershipResult, messagesResult, invoicesResult, documentsResult, mt5Result] = await Promise.all([
       sb.from('profiles').select('full_name').eq('id', user.id).maybeSingle(),
       sb.from('memberships').select('plan_name,status,renews_on').eq('user_id', user.id).maybeSingle(),
-      sb.from('messages').select('body,created_at,sender_id').eq('client_id', user.id).order('created_at', { ascending: true }),
+      sb.from('messages').select('body,created_at,sender_id,attachment_path,attachment_name,attachment_mime').eq('client_id', user.id).order('created_at', { ascending: true }),
       sb.from('invoices').select('invoice_number,description,amount_cents,currency,status,issued_on').eq('client_id', user.id).order('created_at', { ascending: false }),
       sb.from('documents').select('id,display_name,category,storage_path,created_at').eq('client_id', user.id).order('created_at', { ascending: false }),
       sb.from('mt5_accounts').select('slot,broker,server_name,account_number').eq('user_id', user.id).order('slot')
@@ -153,7 +169,14 @@
     document.getElementById('documentCount').textContent = String(documentsResult.data?.length || 0);
     const messageList = document.getElementById('messageList');
     messageList.replaceChildren();
-    (messagesResult.data || []).forEach(message => addMessageBubble(messageList, message.body, `${message.sender_id === user.id ? 'Vous' : 'Alfred-EA'} · ${new Date(message.created_at).toLocaleString('fr-CA')}`, message.sender_id === user.id));
+    for (const message of (messagesResult.data || [])) {
+      let imageUrl = '';
+      if (message.attachment_path) {
+        const { data: signedImage } = await sb.storage.from('client-documents').createSignedUrl(message.attachment_path, 600);
+        imageUrl = signedImage?.signedUrl || '';
+      }
+      addMessageBubble(messageList, message.body, `${message.sender_id === user.id ? 'Vous' : 'Alfred-EA'} · ${new Date(message.created_at).toLocaleString('fr-CA')}`, message.sender_id === user.id, imageUrl, message.attachment_name);
+    }
     if (!messagesResult.data?.length) messageList.innerHTML = '<p>Aucun message.</p>';
     const invoiceList = document.getElementById('invoiceList');
     invoiceList.replaceChildren();
@@ -262,16 +285,34 @@
     }
     if (event.target.id !== 'messageForm') return;
     event.preventDefault();
-    const body = document.getElementById('messageBody').value.trim();
+    const bodyInput = document.getElementById('messageBody');
+    const imageInput = document.getElementById('messageImage');
+    const status = document.getElementById('messageStatus');
+    const body = bodyInput.value.trim();
+    const imageFile = imageInput.files[0];
+    if (!body && !imageFile) { status.textContent = 'Écrivez un message ou ajoutez une image.'; return; }
+    if (imageFile && (!['image/jpeg','image/png','image/webp'].includes(imageFile.type) || imageFile.size > 10 * 1024 * 1024)) {
+      status.textContent = 'Choisissez une image JPG, PNG ou WebP de 10 Mo maximum.'; return;
+    }
     if (demoMode) {
-      if (body) addMessageBubble(document.getElementById('messageList'), body, 'Vous · Démonstration', true);
-      document.getElementById('messageBody').value = '';
-      return;
+      addMessageBubble(document.getElementById('messageList'), body, 'Vous · Démonstration', true, imageFile ? URL.createObjectURL(imageFile) : '', imageFile?.name || '');
+      bodyInput.value = ''; imageInput.value = ''; status.textContent = 'Aperçu de démonstration — aucune donnée enregistrée.'; return;
     }
     const { data: { user } } = await sb.auth.getUser();
-    if (!user || !body) return;
-    const { error } = await sb.from('messages').insert({ client_id: user.id, sender_id: user.id, body });
-    if (!error) { document.getElementById('messageBody').value = ''; await loadDashboard(user); }
+    if (!user) return;
+    const submitButton = event.target.querySelector('button[type="submit"]');
+    submitButton.disabled = true; status.textContent = imageFile ? 'Téléversement privé de l’image…' : 'Envoi…';
+    let attachment = {};
+    if (imageFile) {
+      const extension = imageFile.name.split('.').pop().toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg';
+      const path = `${user.id}/messages/${Date.now()}-${crypto.randomUUID()}.${extension}`;
+      const { error: uploadError } = await sb.storage.from('client-documents').upload(path, imageFile, { contentType: imageFile.type });
+      if (uploadError) { status.textContent = 'L’image n’a pas pu être téléversée.'; submitButton.disabled = false; return; }
+      attachment = { attachment_path: path, attachment_name: imageFile.name, attachment_mime: imageFile.type };
+    }
+    const { error } = await sb.from('messages').insert({ client_id: user.id, sender_id: user.id, body: body || null, ...attachment });
+    if (error) { status.textContent = 'Le message n’a pas pu être envoyé.'; submitButton.disabled = false; return; }
+    bodyInput.value = ''; imageInput.value = ''; status.textContent = ''; await loadDashboard(user);
   });
   dashboard.addEventListener('click', async event => {
     const button = event.target.closest('.document-delete');
