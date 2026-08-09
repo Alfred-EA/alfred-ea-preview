@@ -11,11 +11,6 @@
   const notice = document.querySelector('.demo-notice');
   notice.innerHTML = '<strong>Connexion sécurisée.</strong> Vos informations sont protégées et chaque client peut uniquement consulter son propre dossier.';
   let demoMode = false;
-  const demoButton = document.createElement('button');
-  demoButton.type = 'button';
-  demoButton.className = 'dashboard-action demo-access';
-  demoButton.textContent = 'Voir le tableau de bord démo';
-  notice.insertAdjacentElement('afterend', demoButton);
 
   const status = (id, message, error = false) => {
     const element = document.getElementById(id);
@@ -211,36 +206,6 @@
     container.appendChild(bubble);
   };
 
-  function showDemoDashboard() {
-    demoMode = true;
-    const loginStatus = document.getElementById('loginStatus');
-    if (loginStatus) { loginStatus.hidden = true; loginStatus.textContent = ''; }
-    layout.hidden = true;
-    layout.style.display = 'none';
-    dashboard.hidden = false;
-    dashboard.classList.add('demo-dashboard');
-    document.getElementById('welcomeName').textContent = 'Bonjour, Admin 1';
-    document.getElementById('membershipPlan').textContent = 'Niveau 3';
-    document.getElementById('membershipStatus').textContent = 'Actif · Renouvellement le 15 septembre 2026';
-    document.getElementById('invoiceCount').textContent = '2';
-    document.getElementById('documentCount').textContent = '3';
-    const messageList = document.getElementById('messageList');
-    messageList.replaceChildren();
-    addMessageBubble(messageList, 'Bienvenue dans votre Espace client Alfred-EA.', 'Équipe Alfred-EA · Aujourd’hui');
-    addMessageBubble(messageList, 'Votre abonnement est actif et votre dossier est à jour.', 'Équipe Alfred-EA · Aujourd’hui');
-    const invoiceList = document.getElementById('invoiceList');
-    invoiceList.replaceChildren();
-    addInvoiceCard(invoiceList, { invoice_number: 'AE-2026-002', description: 'Abonnement Alfred-EA', amount_cents: 6000, currency: 'CAD', status: 'paid', issued_on: '2026-08-15' });
-    addInvoiceCard(invoiceList, { invoice_number: 'AE-2026-001', description: 'Abonnement Alfred-EA', amount_cents: 6000, currency: 'CAD', status: 'paid', issued_on: '2026-07-15' }, true);
-    const documentList = document.getElementById('documentList');
-    documentList.replaceChildren();
-    addTextRow(documentList, 'Convention de service', 'Contrat');
-    addTextRow(documentList, 'Confirmation du compte courtier', 'Compte');
-    addTextRow(documentList, 'Guide de démarrage', 'Information');
-    dashboard.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }
-  demoButton.addEventListener('click', showDemoDashboard);
-
   document.getElementById('manageSubscriptionButton').addEventListener('click', event => {
     const panel = document.getElementById('subscriptionManagePanel');
     panel.hidden = !panel.hidden;
@@ -330,7 +295,7 @@
     status('signupStatus', error ? error.message : 'Vérifiez votre courriel pour confirmer votre compte.', !!error);
   });
 
-  document.querySelector('[data-demo]').addEventListener('click', async event => {
+  document.querySelector('[data-password-reset]').addEventListener('click', async event => {
     event.preventDefault();
     const email = document.getElementById('loginEmail').value;
     if (!email) return status('loginStatus', 'Entrez d’abord votre adresse courriel.', true);
