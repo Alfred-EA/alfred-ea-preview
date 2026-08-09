@@ -36,11 +36,11 @@
 
   async function loadMt5Results() {
     const {data, error} = await sb.from('mt5_results').select('id,title,result_date,image_path,is_published,created_at').order('result_date', {ascending:false}).order('created_at', {ascending:false});
-    if (error) { mt5List.innerHTML = '<p class="muted">La section doit dâ€™abord Ãªtre activÃ©e dans Supabase.</p>'; return; }
-    if (!data.length) { mt5List.innerHTML = '<p class="muted">Aucune capture enregistrÃ©e.</p>'; return; }
+    if (error) { mt5List.innerHTML = '<p class="muted">La section doit d’abord être activée dans Supabase.</p>'; return; }
+    if (!data.length) { mt5List.innerHTML = '<p class="muted">Aucune capture enregistrée.</p>'; return; }
     mt5List.innerHTML = data.map(item => {
       const url = sb.storage.from('mt5-results').getPublicUrl(item.image_path).data.publicUrl;
-      return `<article class="result-admin-row" data-id="${item.id}" data-path="${escapeHtml(item.image_path)}"><img src="${escapeHtml(url)}" alt=""><div><strong>${escapeHtml(item.title)}</strong><small>${new Date(`${item.result_date}T12:00:00`).toLocaleDateString('fr-CA')} Â· ${item.is_published ? 'PubliÃ©' : 'MasquÃ©'}</small></div><div class="result-admin-actions"><button class="button toggle-result" data-published="${item.is_published}">${item.is_published ? 'Masquer' : 'Publier'}</button><button class="button danger delete-result">Supprimer</button></div></article>`;
+      return `<article class="result-admin-row" data-id="${item.id}" data-path="${escapeHtml(item.image_path)}"><img src="${escapeHtml(url)}" alt=""><div><strong>${escapeHtml(item.title)}</strong><small>${new Date(`${item.result_date}T12:00:00`).toLocaleDateString('fr-CA')} · ${item.is_published ? 'Publié' : 'Masqué'}</small></div><div class="result-admin-actions"><button class="button toggle-result" data-published="${item.is_published}">${item.is_published ? 'Masquer' : 'Publier'}</button><button class="button danger delete-result">Supprimer</button></div></article>`;
     }).join('');
   }
 
@@ -51,79 +51,94 @@
   mt5DropZone.addEventListener('keydown', event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); mt5Image.click(); } });
   mt5Form.addEventListener('submit', async event => {
     event.preventDefault();
-    if (!selectedMt5File) { mt5Status.textContent = 'Ajoutez dâ€™abord une capture MT5.'; return; }
+    if (!selectedMt5File) { mt5Status.textContent = 'Ajoutez d’abord une capture MT5.'; return; }
     const publishPin=document.getElementById('mt5PublishPin').value.trim();
     if(!/^\d{4}$/.test(publishPin)){mt5Status.textContent='Entrez votre PIN administrateur de 4 chiffres.';return;}
-    const submit = mt5Form.querySelector('button[type="submit"]'); submit.disabled = true; mt5Status.textContent = 'VÃ©rification du PINâ€¦';
+    const submit = mt5Form.querySelector('button[type="submit"]'); submit.disabled = true; mt5Status.textContent = 'Vérification du PIN…';
     const {error:pinError}=await sb.rpc('verify_admin_pin',{p_pin:publishPin});
-    if(pinError){mt5Status.textContent='PIN incorrect, verrouillÃ© ou non configurÃ©. La capture nâ€™a pas Ã©tÃ© envoyÃ©e.';submit.disabled=false;return;}
-    mt5Status.textContent = 'TÃ©lÃ©versement et publicationâ€¦';
+    if(pinError){mt5Status.textContent='PIN incorrect, verrouillé ou non configuré. La capture n’a pas été envoyée.';submit.disabled=false;return;}
+    mt5Status.textContent = 'Téléversement et publication…';
     const extension = selectedMt5File.name.split('.').pop().toLowerCase();
     const path = `${crypto.randomUUID()}.${extension}`;
     const {error: uploadError} = await sb.storage.from('mt5-results').upload(path, selectedMt5File, {contentType:selectedMt5File.type, upsert:false});
-    if (uploadError) { mt5Status.textContent = 'La capture nâ€™a pas pu Ãªtre tÃ©lÃ©versÃ©e.'; submit.disabled = false; return; }
+    if (uploadError) { mt5Status.textContent = 'La capture n’a pas pu être téléversée.'; submit.disabled = false; return; }
     const record = {title:document.getElementById('mt5Title').value.trim(),description:document.getElementById('mt5Description').value.trim() || null,result_date:document.getElementById('mt5Date').value,image_path:path,is_published:document.getElementById('mt5Published').checked};
     const {error} = await sb.from('mt5_results').insert(record);
-    if (error) { await sb.storage.from('mt5-results').remove([path]); mt5Status.textContent = 'La publication nâ€™a pas pu Ãªtre enregistrÃ©e.'; submit.disabled = false; return; }
-    mt5Form.reset(); document.getElementById('mt5Date').valueAsDate = new Date(); selectedMt5File = null; mt5Preview.hidden = true; mt5Preview.removeAttribute('src'); mt5DropZone.classList.remove('has-image'); submit.disabled = false; mt5Status.textContent = record.is_published ? 'Capture publiÃ©e sur la page RÃ©sultats MT5.' : 'Capture enregistrÃ©e comme masquÃ©e.'; await loadMt5Results();
+    if (error) { await sb.storage.from('mt5-results').remove([path]); mt5Status.textContent = 'La publication n’a pas pu être enregistrée.'; submit.disabled = false; return; }
+    mt5Form.reset(); document.getElementById('mt5Date').valueAsDate = new Date(); selectedMt5File = null; mt5Preview.hidden = true; mt5Preview.removeAttribute('src'); mt5DropZone.classList.remove('has-image'); submit.disabled = false; mt5Status.textContent = record.is_published ? 'Capture publiée sur la page Résultats MT5.' : 'Capture enregistrée comme masquée.'; await loadMt5Results();
   });
   mt5List.addEventListener('click', async event => {
     const article = event.target.closest('.result-admin-row'); if (!article) return;
-    if (event.target.closest('.toggle-result')) { const next = event.target.dataset.published !== 'true'; if(next){const pin=prompt('Entrez votre PIN administrateur Ã  4 chiffres pour publier cette capture :');if(!pin)return;const {error:pinError}=await sb.rpc('verify_admin_pin',{p_pin:pin});if(pinError){alert('PIN incorrect, verrouillÃ© ou non configurÃ©.');return;}} const {error} = await sb.from('mt5_results').update({is_published:next}).eq('id', article.dataset.id); if (!error) await loadMt5Results(); }
-    if (event.target.closest('.delete-result')) { if (!confirm('Supprimer dÃ©finitivement cette capture?')) return; const {error} = await sb.from('mt5_results').delete().eq('id', article.dataset.id); if (!error) { await sb.storage.from('mt5-results').remove([article.dataset.path]); await loadMt5Results(); } }
+    if (event.target.closest('.toggle-result')) { const next = event.target.dataset.published !== 'true'; if(next){const pin=prompt('Entrez votre PIN administrateur à 4 chiffres pour publier cette capture :');if(!pin)return;const {error:pinError}=await sb.rpc('verify_admin_pin',{p_pin:pin});if(pinError){alert('PIN incorrect, verrouillé ou non configuré.');return;}} const {error} = await sb.from('mt5_results').update({is_published:next}).eq('id', article.dataset.id); if (!error) await loadMt5Results(); }
+    if (event.target.closest('.delete-result')) { if (!confirm('Supprimer définitivement cette capture?')) return; const {error} = await sb.from('mt5_results').delete().eq('id', article.dataset.id); if (!error) { await sb.storage.from('mt5-results').remove([article.dataset.path]); await loadMt5Results(); } }
   });
 
   function loadDemoClient() {
-    selectedClient = {id:'demo', full_name:'Client DÃ©mo'};
-    document.getElementById('clientTitle').textContent = 'Client DÃ©mo';
+    selectedClient = {id:'demo', full_name:'Client Démo'};
+    document.getElementById('clientTitle').textContent = 'Client Démo';
     details.innerHTML = `
-      <p class="muted">DOSSIER DE DÃ‰MONSTRATION Â· AUCUNE DONNÃ‰E RÃ‰ELLE</p>
+      <p class="muted">DOSSIER DE DÉMONSTRATION · AUCUNE DONNÉE RÉELLE</p>
       <div class="section"><h2>Abonnement</h2>
-        ${row('Niveau 3 Â· Actif', 'Membre depuis le 2 aoÃ»t 2026')}
-        ${row('60,00 $ CA', 'DerniÃ¨re facturation : 2 aoÃ»t 2026')}
+        ${row('Niveau 3 · Actif', 'Membre depuis le 2 août 2026')}
+        ${row('60,00 $ CA', 'Dernière facturation : 2 août 2026')}
         ${row('Prochain renouvellement', '15 septembre 2026')}
       </div>
       <div class="section"><h2>Comptes MT5</h2>
-        ${row('Compte 1 Â· STARTRADER', '12345678 Â· STARTRADER-Live', '<div class="actions"><button class="button demo-reveal">Simuler lâ€™accÃ¨s administrateur</button></div>')}
-        ${row('Compte 2 Â· Vantage Markets (USA only)', '87654321 Â· VantageInternational-Live', '<small>Aucun mot de passe temporaire disponible</small>')}
+        ${row('Compte 1 · STARTRADER', '12345678 · STARTRADER-Live', '<div class="actions"><button class="button demo-reveal">Simuler l’accès administrateur</button></div>')}
+        ${row('Compte 2 · Vantage Markets (USA only)', '87654321 · VantageInternational-Live', '<small>Aucun mot de passe temporaire disponible</small>')}
       </div>
-      <div class="section"><h2>Documents privÃ©s</h2>
-        ${row('Permis de conduire â€” recto', 'drivers_license_front', '<small>Document fictif</small>')}
-        ${row('Permis de conduire â€” verso', 'drivers_license_back', '<small>Document fictif</small>')}
+      <div class="section"><h2>Documents privés</h2>
+        ${row('Permis de conduire — recto', 'drivers_license_front', '<small>Document fictif</small>')}
+        ${row('Permis de conduire — verso', 'drivers_license_back', '<small>Document fictif</small>')}
       </div>
-      <div class="section"><h2>Conversation privÃ©e</h2><div class="admin-conversation"><div class="message client-message"><strong>Client DÃ©mo</strong><p>Bonjour, mon compte MT5 est maintenant prÃªt.</p><small>Aujourdâ€™hui Â· 09:15</small></div><div class="message admin-message"><strong>Alfred-EA</strong><p>Merci. Nous allons vÃ©rifier votre dossier et vous confirmer lâ€™activation.</p><small>Aujourdâ€™hui Â· 09:22</small></div></div><form class="admin-message-form"><textarea maxlength="5000" placeholder="Ã‰crire un message privÃ© au client" required></textarea><button class="button" type="submit">Envoyer au client</button><p class="muted message-status"></p></form></div>`;
+      <div class="section"><h2>Conversation privée</h2><div class="admin-conversation"><div class="message client-message"><strong>Client Démo</strong><p>Bonjour, mon compte MT5 est maintenant prêt.</p><small>Aujourd’hui · 09:15</small></div><div class="message admin-message"><strong>Alfred-EA</strong><p>Merci. Nous allons vérifier votre dossier et vous confirmer l’activation.</p><small>Aujourd’hui · 09:22</small></div></div><form class="admin-message-form"><textarea maxlength="5000" placeholder="Écrire un message privé au client"></textarea><label class="message-image-label">Image privée (JPG, PNG ou WebP, 10 Mo max)<input class="admin-message-image" type="file" accept="image/jpeg,image/png,image/webp"></label><button class="button" type="submit">Envoyer au client</button><p class="muted message-status"></p></form></div>`;
   }
 
   async function loadClient(client) {
     selectedClient = client;
     document.getElementById('clientTitle').textContent = client.full_name || 'Client';
-    details.innerHTML = '<p class="muted">Chargementâ€¦</p>';
+    details.innerHTML = '<p class="muted">Chargement…</p>';
     const [accounts, documents, credentials, membership, latestInvoice, messages] = await Promise.all([
       sb.from('mt5_accounts').select('slot,broker,server_name,account_number').eq('user_id', client.id).order('slot'),
       sb.from('documents').select('id,display_name,category,storage_path').eq('client_id', client.id).order('created_at', {ascending:false}),
       sb.from('mt5_credentials').select('id,slot,expires_at,created_at').eq('user_id', client.id).order('slot'),
       sb.from('memberships').select('plan_name,status,starts_on,renews_on,updated_at').eq('user_id', client.id).maybeSingle(),
       sb.from('invoices').select('amount_cents,currency,issued_on,status').eq('client_id', client.id).order('issued_on', {ascending:false}).limit(1).maybeSingle(),
-      sb.from('messages').select('body,created_at,sender_id').eq('client_id', client.id).order('created_at', {ascending:true})
+      sb.from('messages').select('body,created_at,sender_id,attachment_path,attachment_name,attachment_mime').eq('client_id', client.id).order('created_at', {ascending:true})
     ]);
+    const renderedMessages = await Promise.all((messages.data || []).map(async message => {
+      let attachmentHtml = '';
+      if (message.attachment_path) {
+        const { data: signedImage } = await sb.storage.from('client-documents').createSignedUrl(message.attachment_path, 600);
+        if (signedImage?.signedUrl) attachmentHtml = `<a href="${escapeHtml(signedImage.signedUrl)}" target="_blank" rel="noopener"><img src="${escapeHtml(signedImage.signedUrl)}" alt="${escapeHtml(message.attachment_name || 'Image privée')}" loading="lazy" style="display:block;max-width:min(100%,520px);max-height:420px;margin:.65rem 0;border-radius:12px;object-fit:contain"></a>`;
+      }
+      return `<div class="message ${message.sender_id === client.id ? 'client-message' : 'admin-message'}"><strong>${message.sender_id === client.id ? escapeHtml(client.full_name || 'Client') : 'Alfred-EA'}</strong>${message.body ? `<p>${escapeHtml(message.body)}</p>` : ''}${attachmentHtml}<small>${new Date(message.created_at).toLocaleString('fr-CA')}</small></div>`;
+    }));
+    const messagesHtml = renderedMessages.join('') || '<p class="muted">Aucun message pour ce client.</p>';
     const memberSince = membership.data?.starts_on || client.created_at;
-    const memberSinceText = memberSince ? new Date(memberSince).toLocaleDateString('fr-CA', {year:'numeric',month:'long',day:'numeric'}) : 'Ã€ confirmer';
+    const memberSinceText = memberSince ? new Date(memberSince).toLocaleDateString('fr-CA', {year:'numeric',month:'long',day:'numeric'}) : 'À confirmer';
     const invoiceAmount = latestInvoice.data ? (latestInvoice.data.amount_cents / 100).toLocaleString('fr-CA', {style:'currency',currency:latestInvoice.data.currency}) : 'Aucune facturation';
-    const billingDate = latestInvoice.data?.issued_on ? new Date(`${latestInvoice.data.issued_on}T12:00:00`).toLocaleDateString('fr-CA', {year:'numeric',month:'long',day:'numeric'}) : 'â€”';
-    const renewalDate = membership.data?.renews_on ? new Date(`${membership.data.renews_on}T12:00:00`).toLocaleDateString('fr-CA', {year:'numeric',month:'long',day:'numeric'}) : 'Ã€ confirmer';
+    const billingDate = latestInvoice.data?.issued_on ? new Date(`${latestInvoice.data.issued_on}T12:00:00`).toLocaleDateString('fr-CA', {year:'numeric',month:'long',day:'numeric'}) : '—';
+    const renewalDate = membership.data?.renews_on ? new Date(`${membership.data.renews_on}T12:00:00`).toLocaleDateString('fr-CA', {year:'numeric',month:'long',day:'numeric'}) : 'À confirmer';
     const awaitingApproval = client.admin_group === 'new' || !membership.data || membership.data.status === 'pending';
-    const approvalAction = awaitingApproval ? '<div class="actions"><button class="button approve-member" type="button">Approuver et activer le membre</button><small class="approval-status">RÃ©servÃ© aux administrateurs Â· confirmez le paiement avant lâ€™approbation.</small></div>' : '';
-    let html = `<p class="muted">Dossier ${escapeHtml(client.id)}</p><div class="section"><h2>Abonnement</h2>${row(`${membership.data?.plan_name || 'Ã€ confirmer'} Â· ${membership.data?.status || 'En attente'}`, `Membre depuis le ${memberSinceText}`, approvalAction)}${row(invoiceAmount, `DerniÃ¨re facturation : ${billingDate}`)}${row('Prochain renouvellement', renewalDate)}</div><div class="section"><h2>Comptes MT5</h2>`;
+    const approvalAction = awaitingApproval ? '<div class="actions"><button class="button approve-member" type="button">Approuver et activer le membre</button><small class="approval-status">Réservé aux administrateurs · confirmez le paiement avant l’approbation.</small></div>' : '';
+    let html = `<p class="muted">Dossier ${escapeHtml(client.id)}</p><div class="section"><h2>Abonnement</h2>${row(`${membership.data?.plan_name || 'À confirmer'} · ${membership.data?.status || 'En attente'}`, `Membre depuis le ${memberSinceText}`, approvalAction)}${row(invoiceAmount, `Dernière facturation : ${billingDate}`)}${row('Prochain renouvellement', renewalDate)}</div><div class="section"><h2>Comptes MT5</h2>`;
     html += (accounts.data || []).map(account => {
       const credential = (credentials.data || []).find(item => item.slot === account.slot);
-      const action = credential ? `<div class="actions"><button class="button reveal" data-id="${credential.id}">AccÃ©der avec mon mot de passe administrateur Â· expire ${new Date(credential.expires_at).toLocaleString('fr-CA')}</button></div>` : '<small>Aucun mot de passe temporaire disponible</small>';
-      return row(`Compte ${account.slot} Â· ${account.broker}`, `${account.account_number} Â· ${account.server_name || 'Serveur non indiquÃ©'}`, action);
-    }).join('') || '<p class="muted">Aucun compte enregistrÃ©.</p>';
-    html += '</div><div class="section"><h2>Documents privÃ©s</h2>';
-    html += (documents.data || []).map(document => row(document.display_name, document.category, `<div class="actions"><button class="button open-document" data-path="${escapeHtml(document.storage_path)}">Ouvrir</button></div>`)).join('') || '<p class="muted">Aucun document.</p>';
-    html += '</div><div class="section"><h2>Conversation privÃ©e</h2><div class="admin-conversation">';
-    html += (messages.data || []).map(message => `<div class="message ${message.sender_id === client.id ? 'client-message' : 'admin-message'}"><strong>${message.sender_id === client.id ? escapeHtml(client.full_name || 'Client') : 'Alfred-EA'}</strong><p>${escapeHtml(message.body)}</p><small>${new Date(message.created_at).toLocaleString('fr-CA')}</small></div>`).join('') || '<p class="muted">Aucun message pour ce client.</p>';
-    html += '</div><form class="admin-message-form"><textarea maxlength="5000" placeholder="Ã‰crire un message privÃ© au client" required></textarea><button class="button" type="submit">Envoyer au client</button><p class="muted message-status"></p></form></div>';
+      const action = credential ? `<div class="actions"><button class="button reveal" data-id="${credential.id}">Accéder avec mon PIN administrateur</button></div>` : '<small>Aucun mot de passe disponible</small>';
+      return row(`Compte ${account.slot} · ${account.broker}`, `${account.account_number} · ${account.server_name || 'Serveur non indiqué'}`, action);
+    }).join('') || '<p class="muted">Aucun compte enregistré.</p>';
+    html += '</div><div class="section"><h2>Documents privés</h2>';
+    html += (documents.data || []).map(document => {
+      const isLicense = ['drivers_license_front','drivers_license_back'].includes(document.category);
+      const action = isLicense
+        ? `<div class="actions"><button class="button open-license" data-id="${document.id}" type="button">Ouvrir avec le PIN administrateur</button><small>Chaque accès est inscrit au journal de sécurité.</small></div>`
+        : `<div class="actions"><button class="button open-document" data-path="${escapeHtml(document.storage_path)}" type="button">Ouvrir</button></div>`;
+      return row(document.display_name, document.category, action);
+    }).join('') || '<p class="muted">Aucun document.</p>';
+    html += '</div><div class="section"><h2>Conversation privée</h2><div class="admin-conversation">';
+    html += messagesHtml;
+    html += '</div><form class="admin-message-form"><textarea maxlength="5000" placeholder="Écrire un message privé au client"></textarea><label>Ajouter une image privée (JPG, PNG ou WebP · 10 Mo max.)<input class="admin-message-image" type="file" accept="image/jpeg,image/png,image/webp"></label><button class="button" type="submit">Envoyer au client</button><p class="muted message-status"></p></form></div>';
     details.innerHTML = html;
   }
 
@@ -131,7 +146,7 @@
     const {data:{session}} = await sb.auth.getSession();
     if (!session) { location.href = 'client-space.html'; return; }
     const {data:admin} = await sb.from('admin_users').select('user_id').eq('user_id', session.user.id).maybeSingle();
-    if (!admin) { status.textContent = 'AccÃ¨s refusÃ©. Ce compte nâ€™est pas administrateur.'; return; }
+    if (!admin) { status.textContent = 'Accès refusé. Ce compte n’est pas administrateur.'; return; }
     const [{data:profiles, error},{data:memberships, error:membershipError}] = await Promise.all([
       sb.from('profiles').select('id,full_name,created_at').order('created_at', {ascending:false}),
       sb.from('memberships').select('user_id,plan_name,status,starts_on,renews_on,updated_at')
@@ -140,17 +155,17 @@
     if (membershipError) { status.textContent = 'Impossible de charger les abonnements.'; return; }
     const {data:hasPin} = await sb.rpc('has_admin_pin');
     status.hidden = true; grid.hidden = false; mt5Publisher.hidden = false; adminPinPanel.hidden = false; clients.replaceChildren();
-    document.getElementById('adminPinHelp').textContent = hasPin ? 'Entrez votre PIN actuel avant de choisir un nouveau PIN.' : 'CrÃ©ez votre PIN de 4 chiffres avant dâ€™approuver un membre ou dâ€™afficher un mot de passe MT5.';
+    document.getElementById('adminPinHelp').textContent = hasPin ? 'Entrez votre PIN actuel avant de choisir un nouveau PIN.' : 'Créez votre PIN de 4 chiffres avant d’approuver un membre ou d’afficher un mot de passe MT5.';
     document.getElementById('currentPinField').hidden = !hasPin;
     document.getElementById('adminCurrentPinInput').required = Boolean(hasPin);
     document.getElementById('mt5Date').valueAsDate = new Date();
     loadMt5Results();
-    const demoButton=document.createElement('button'); demoButton.className='client demo-client'; demoButton.innerHTML='Client DÃ©mo<small>AperÃ§u administrateur Â· aucune donnÃ©e rÃ©elle</small>'; demoButton.addEventListener('click',loadDemoClient); clients.appendChild(demoButton);
+    const demoButton=document.createElement('button'); demoButton.className='client demo-client'; demoButton.innerHTML='Client Démo<small>Aperçu administrateur · aucune donnée réelle</small>'; demoButton.addEventListener('click',loadDemoClient); clients.appendChild(demoButton);
     const membershipsByUser = new Map((memberships || []).map(membership => [membership.user_id, membership]));
     const groups = [
       {key:'new',title:'Nouveaux membres',items:[]},
       {key:'active',title:'Abonnements actifs',items:[]},
-      {key:'unpaid',title:'Non payÃ©s',items:[]},
+      {key:'unpaid',title:'Non payés',items:[]},
       {key:'inactive',title:'Inactifs',items:[]}
     ];
     profiles.forEach(profile => {
@@ -176,62 +191,82 @@
     const approve = event.target.closest('.approve-member');
     if (approve) {
       if (!selectedClient || selectedClient.id === 'demo') return;
-      approve.closest('.actions').innerHTML=`<form class="member-approval-gate" data-user-id="${selectedClient.id}"><label>Confirmez le paiement et entrez votre PIN administrateur Ã  4 chiffres</label><input type="password" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" autocomplete="one-time-code" required><button class="button" type="submit">Confirmer et activer le membre</button><button class="button cancel-member-approval" type="button">Annuler</button><p class="muted approval-status">Cette action dÃ©placera le client vers Abonnements actifs.</p></form>`;
+      approve.closest('.actions').innerHTML=`<form class="member-approval-gate" data-user-id="${selectedClient.id}"><label>Confirmez le paiement et entrez votre PIN administrateur à 4 chiffres</label><input type="password" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" autocomplete="one-time-code" required><button class="button" type="submit">Confirmer et activer le membre</button><button class="button cancel-member-approval" type="button">Annuler</button><p class="muted approval-status">Cette action déplacera le client vers Abonnements actifs.</p></form>`;
       return;
     }
     const demoReveal = event.target.closest('.demo-reveal');
     if (demoReveal) {
-      demoReveal.closest('.actions').innerHTML='<form class="credential-gate" data-demo="true"><label>PIN administrateur Ã  4 chiffres</label><input type="password" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" autocomplete="one-time-code" required><button class="button" type="submit">VÃ©rifier et afficher le mot de passe dÃ©mo</button><p class="muted gate-status"></p></form>'; return;
+      demoReveal.closest('.actions').innerHTML='<form class="credential-gate" data-demo="true"><label>PIN administrateur à 4 chiffres</label><input type="password" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" autocomplete="one-time-code" required><button class="button" type="submit">Vérifier et afficher le mot de passe démo</button><p class="muted gate-status"></p></form>'; return;
     }
     const reveal = event.target.closest('.reveal');
     if (reveal) {
       const actions=reveal.closest('.actions');
-      actions.innerHTML=`<form class="credential-gate" data-id="${reveal.dataset.id}"><label>PIN administrateur Ã  4 chiffres</label><input type="password" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" autocomplete="one-time-code" required><button class="button" type="submit">VÃ©rifier et afficher pour ce compte</button><p class="muted gate-status"></p></form>`;
+      actions.innerHTML=`<form class="credential-gate" data-id="${reveal.dataset.id}"><label>PIN administrateur à 4 chiffres</label><input type="password" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" autocomplete="one-time-code" required><button class="button" type="submit">Vérifier et afficher pour ce compte</button><p class="muted gate-status"></p></form>`;
+    }
+    const openLicense = event.target.closest('.open-license');
+    if (openLicense) {
+      const actions = openLicense.closest('.actions');
+      actions.innerHTML = `<form class="license-gate" data-id="${openLicense.dataset.id}"><label>PIN administrateur à 4 chiffres</label><input type="password" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" autocomplete="one-time-code" required><button class="button" type="submit">Vérifier et ouvrir la licence</button><p class="muted license-status"></p></form>`;
     }
     const open = event.target.closest('.open-document');
     if (open) { const {data,error}=await sb.storage.from('client-documents').createSignedUrl(open.dataset.path,300); if(error) alert('Document inaccessible.'); else window.open(data.signedUrl,'_blank','noopener'); }
   });
   details.addEventListener('submit', async event => {
+    const licenseGate=event.target.closest('.license-gate');
+    if(licenseGate){
+      event.preventDefault();
+      const pin=licenseGate.querySelector('input').value.trim(); const feedback=licenseGate.querySelector('.license-status'); const submitButton=licenseGate.querySelector('button');
+      if(!/^\d{4}$/.test(pin)){feedback.textContent='Entrez un PIN de exactement 4 chiffres.';return;}
+      submitButton.disabled=true; feedback.textContent='Vérification du PIN…';
+      const {data:path,error}=await sb.rpc('authorize_license_view',{p_document_id:licenseGate.dataset.id,p_pin:pin});
+      licenseGate.querySelector('input').value='';
+      if(error){feedback.textContent='PIN incorrect, verrouillé ou document indisponible.';submitButton.disabled=false;return;}
+      const {data:signed,error:signError}=await sb.storage.from('client-documents').createSignedUrl(path,300);
+      if(signError){feedback.textContent='Licence inaccessible.';submitButton.disabled=false;return;}
+      feedback.textContent='Accès autorisé et inscrit au journal de sécurité.'; window.open(signed.signedUrl,'_blank','noopener'); submitButton.disabled=false; return;
+    }
     const approvalGate=event.target.closest('.member-approval-gate');
     if(approvalGate){
       event.preventDefault();
       const pin=approvalGate.querySelector('input').value.trim(); const feedback=approvalGate.querySelector('.approval-status'); const submitButton=approvalGate.querySelector('button[type="submit"]');
       if(!/^\d{4}$/.test(pin)){feedback.textContent='Entrez un PIN de exactement 4 chiffres.';return;}
-      submitButton.disabled=true; feedback.textContent='VÃ©rification du PIN et activationâ€¦';
+      submitButton.disabled=true; feedback.textContent='Vérification du PIN et activation…';
       const {error}=await sb.rpc('approve_member',{p_user_id:approvalGate.dataset.userId,p_pin:pin});
-      if(error){feedback.textContent='PIN incorrect, verrouillÃ© ou non configurÃ©. Le membre nâ€™a pas Ã©tÃ© activÃ©.';submitButton.disabled=false;return;}
-      feedback.textContent='Membre approuvÃ© et abonnement activÃ©.'; setTimeout(()=>location.reload(),700); return;
+      if(error){feedback.textContent='PIN incorrect, verrouillé ou non configuré. Le membre n’a pas été activé.';submitButton.disabled=false;return;}
+      feedback.textContent='Membre approuvé et abonnement activé.'; setTimeout(()=>location.reload(),700); return;
     }
     const messageForm=event.target.closest('.admin-message-form');
     if(messageForm){
       event.preventDefault();
-      const textarea=messageForm.querySelector('textarea'); const feedback=messageForm.querySelector('.message-status'); const body=textarea.value.trim();
-      if(!body||!selectedClient) return;
+      const textarea=messageForm.querySelector('textarea'); const imageInput=messageForm.querySelector('.admin-message-image'); const feedback=messageForm.querySelector('.message-status'); const body=textarea.value.trim(); const imageFile=imageInput.files[0];
+      if((!body&&!imageFile)||!selectedClient){feedback.textContent='Écrivez un message ou ajoutez une image.';return;}
+      if(imageFile&&(!['image/jpeg','image/png','image/webp'].includes(imageFile.type)||imageFile.size>10*1024*1024)){feedback.textContent='Choisissez une image JPG, PNG ou WebP de 10 Mo maximum.';return;}
       if(selectedClient.id==='demo'){
-        const conversation=messageForm.previousElementSibling;
-        conversation.insertAdjacentHTML('beforeend',`<div class="message admin-message"><strong>Alfred-EA</strong><p>${escapeHtml(body)}</p><small>Ã€ lâ€™instant Â· dÃ©monstration</small></div>`);
-        textarea.value=''; feedback.textContent='Message de dÃ©monstration â€” aucune donnÃ©e enregistrÃ©e.'; return;
+        const conversation=messageForm.previousElementSibling; const preview=imageFile?`<img src="${URL.createObjectURL(imageFile)}" alt="Aperçu" style="display:block;max-width:min(100%,520px);max-height:420px;margin:.65rem 0;border-radius:12px;object-fit:contain">`:'';
+        conversation.insertAdjacentHTML('beforeend',`<div class="message admin-message"><strong>Alfred-EA</strong>${body?`<p>${escapeHtml(body)}</p>`:''}${preview}<small>À l’instant · démonstration</small></div>`);
+        textarea.value=''; imageInput.value=''; feedback.textContent='Message de démonstration — aucune donnée enregistrée.'; return;
       }
-      const submitButton=messageForm.querySelector('button'); submitButton.disabled=true; feedback.textContent='Envoiâ€¦';
-      const {data:{user}}=await sb.auth.getUser();
-      const {error}=await sb.from('messages').insert({client_id:selectedClient.id,sender_id:user.id,body});
-      if(error){feedback.textContent='Le message nâ€™a pas pu Ãªtre envoyÃ©.';submitButton.disabled=false;return;}
+      const submitButton=messageForm.querySelector('button'); submitButton.disabled=true; feedback.textContent=imageFile?'Téléversement privé de l’image…':'Envoi…';
+      const {data:{user}}=await sb.auth.getUser(); let attachment={};
+      if(imageFile){const extension=imageFile.name.split('.').pop().toLowerCase().replace(/[^a-z0-9]/g,'')||'jpg'; const path=`${selectedClient.id}/messages/admin-${Date.now()}-${crypto.randomUUID()}.${extension}`; const {error:uploadError}=await sb.storage.from('client-documents').upload(path,imageFile,{contentType:imageFile.type}); if(uploadError){feedback.textContent='L’image n’a pas pu être téléversée.';submitButton.disabled=false;return;} attachment={attachment_path:path,attachment_name:imageFile.name,attachment_mime:imageFile.type};}
+      const {error}=await sb.from('messages').insert({client_id:selectedClient.id,sender_id:user.id,body:body||null,...attachment});
+      if(error){feedback.textContent='Le message n’a pas pu être envoyé.';submitButton.disabled=false;return;}
       await loadClient(selectedClient); return;
     }
     const gate=event.target.closest('.credential-gate');
     if(!gate) return;
     event.preventDefault();
     const submit=gate.querySelector('button'); const feedback=gate.querySelector('.gate-status'); const pin=gate.querySelector('input').value;
-    submit.disabled=true; feedback.textContent='VÃ©rificationâ€¦';
+    submit.disabled=true; feedback.textContent='Vérification…';
     if(gate.dataset.demo==='true'){
       const {error}=await sb.rpc('verify_admin_pin',{p_pin:pin});
-      if(error){feedback.textContent='PIN incorrect, verrouillÃ© ou non configurÃ©.';submit.disabled=false;return;}
-      gate.innerHTML='<div class="account-secret"><strong>Compte 1 Â· Mot de passe MT5</strong><input type="text" value="DEMO-ONLY-NOT-A-REAL-PASSWORD" readonly><button class="button copy-account-secret" type="button">Copier</button><button class="button hide-account-secret" type="button">Masquer le mot de passe</button><small>DÃ©monstration seulement Â· le PIN sera requis pour lâ€™afficher de nouveau</small></div>';
+      if(error){feedback.textContent='PIN incorrect, verrouillé ou non configuré.';submit.disabled=false;return;}
+      gate.innerHTML='<div class="account-secret"><strong>Compte 1 · Mot de passe MT5</strong><input type="text" value="DEMO-ONLY-NOT-A-REAL-PASSWORD" readonly><button class="button copy-account-secret" type="button">Copier</button><button class="button hide-account-secret" type="button">Masquer le mot de passe</button><small>Démonstration seulement · le PIN sera requis pour l’afficher de nouveau</small></div>';
       return;
     }
     const {data,error}=await sb.rpc('reveal_mt5_credential',{p_credential_id:gate.dataset.id,p_pin:pin});
-    if(error){feedback.textContent='PIN incorrect, verrouillÃ©, ou mot de passe MT5 indisponible.';submit.disabled=false;return;}
-    gate.innerHTML=`<div class="account-secret"><strong>Mot de passe MT5 de ce compte</strong><input type="text" value="${escapeHtml(data)}" readonly><button class="button copy-account-secret" type="button">Copier</button><button class="button hide-account-secret" type="button">Masquer le mot de passe</button><small>Consultation journalisÃ©e Â· le PIN sera requis pour lâ€™afficher de nouveau</small></div>`;
+    if(error){feedback.textContent='PIN incorrect, verrouillé, ou mot de passe MT5 indisponible.';submit.disabled=false;return;}
+    gate.innerHTML=`<div class="account-secret"><strong>Mot de passe MT5 de ce compte</strong><input type="text" value="${escapeHtml(data)}" readonly><button class="button copy-account-secret" type="button">Copier</button><button class="button hide-account-secret" type="button">Masquer le mot de passe</button><small>Consultation journalisée · le PIN sera requis pour l’afficher de nouveau</small></div>`;
   });
   details.addEventListener('click',event=>{
     const cancelApproval=event.target.closest('.cancel-member-approval');
@@ -243,10 +278,10 @@
     const gate=hide.closest('.credential-gate');
     const actions=gate.closest('.actions');
     actions.innerHTML=gate.dataset.demo==='true'
-      ? '<button class="button demo-reveal">Simuler lâ€™accÃ¨s administrateur</button>'
-      : `<button class="button reveal" data-id="${gate.dataset.id}">AccÃ©der avec mon PIN administrateur</button>`;
+      ? '<button class="button demo-reveal">Simuler l’accès administrateur</button>'
+      : `<button class="button reveal" data-id="${gate.dataset.id}">Accéder avec mon PIN administrateur</button>`;
   });
-  adminPinForm.addEventListener('submit',async event=>{event.preventDefault();const currentInput=document.getElementById('adminCurrentPinInput');const input=document.getElementById('adminPinInput');const currentPin=currentInput.value.trim();const pin=input.value.trim();if(!/^\d{4}$/.test(pin)||(!document.getElementById('currentPinField').hidden&&!/^\d{4}$/.test(currentPin))){adminPinStatus.textContent='Chaque PIN doit contenir exactement 4 chiffres.';return;}const button=adminPinForm.querySelector('button');button.disabled=true;adminPinStatus.textContent='VÃ©rification et enregistrementâ€¦';const {error}=await sb.rpc('set_admin_pin',{p_current_pin:currentPin||null,p_new_pin:pin});button.disabled=false;if(error){adminPinStatus.textContent='PIN actuel incorrect, verrouillÃ© ou nouveau PIN invalide.';return;}currentInput.value='';input.value='';document.getElementById('currentPinField').hidden=false;currentInput.required=true;adminPinStatus.textContent='Nouveau PIN administrateur enregistrÃ©.';document.getElementById('adminPinHelp').textContent='Entrez votre PIN actuel avant de choisir un nouveau PIN.';});
+  adminPinForm.addEventListener('submit',async event=>{event.preventDefault();const currentInput=document.getElementById('adminCurrentPinInput');const input=document.getElementById('adminPinInput');const currentPin=currentInput.value.trim();const pin=input.value.trim();if(!/^\d{4}$/.test(pin)||(!document.getElementById('currentPinField').hidden&&!/^\d{4}$/.test(currentPin))){adminPinStatus.textContent='Chaque PIN doit contenir exactement 4 chiffres.';return;}const button=adminPinForm.querySelector('button');button.disabled=true;adminPinStatus.textContent='Vérification et enregistrement…';const {error}=await sb.rpc('set_admin_pin',{p_current_pin:currentPin||null,p_new_pin:pin});button.disabled=false;if(error){adminPinStatus.textContent='PIN actuel incorrect, verrouillé ou nouveau PIN invalide.';return;}currentInput.value='';input.value='';document.getElementById('currentPinField').hidden=false;currentInput.required=true;adminPinStatus.textContent='Nouveau PIN administrateur enregistré.';document.getElementById('adminPinHelp').textContent='Entrez votre PIN actuel avant de choisir un nouveau PIN.';});
   document.getElementById('logout').addEventListener('click',async()=>{await sb.auth.signOut();location.href='client-space.html';});
   init();
 })();
