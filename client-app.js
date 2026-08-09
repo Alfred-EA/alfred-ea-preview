@@ -85,7 +85,7 @@
     container.appendChild(row);
   };
 
-  const addInvoiceCard = (container, invoice) => {
+  const addInvoiceCard = (container, invoice, collapsed = false) => {
     const card = document.createElement('article');
     card.className = 'invoice-card';
     const header = document.createElement('div');
@@ -160,6 +160,27 @@
       actions.append(previewButton, pdfLink);
       card.append(actions, preview);
     }
+    if (collapsed) {
+      const historyLink = document.createElement('button');
+      historyLink.type = 'button';
+      historyLink.className = 'invoice-history-link';
+      const month = invoice.issued_on
+        ? new Date(`${invoice.issued_on}T12:00:00`).toLocaleDateString('fr-CA', { year: 'numeric', month: 'long' })
+        : invoice.invoice_number;
+      const historyMonth = document.createElement('span');
+      historyMonth.textContent = month;
+      const historyAction = document.createElement('span');
+      historyAction.textContent = 'Voir la facture';
+      historyLink.append(historyMonth, document.createTextNode(' — '), historyAction);
+      historyLink.setAttribute('aria-expanded', 'false');
+      card.hidden = true;
+      historyLink.addEventListener('click', () => {
+        card.hidden = !card.hidden;
+        historyLink.setAttribute('aria-expanded', String(!card.hidden));
+        historyAction.textContent = card.hidden ? 'Voir la facture' : 'Masquer la facture';
+      });
+      container.appendChild(historyLink);
+    }
     container.appendChild(card);
   };
 
@@ -210,7 +231,7 @@
     const invoiceList = document.getElementById('invoiceList');
     invoiceList.replaceChildren();
     addInvoiceCard(invoiceList, { invoice_number: 'AE-2026-002', description: 'Abonnement Alfred-EA', amount_cents: 6000, currency: 'CAD', status: 'paid', issued_on: '2026-08-15' });
-    addInvoiceCard(invoiceList, { invoice_number: 'AE-2026-001', description: 'Abonnement Alfred-EA', amount_cents: 6000, currency: 'CAD', status: 'paid', issued_on: '2026-07-15' });
+    addInvoiceCard(invoiceList, { invoice_number: 'AE-2026-001', description: 'Abonnement Alfred-EA', amount_cents: 6000, currency: 'CAD', status: 'paid', issued_on: '2026-07-15' }, true);
     const documentList = document.getElementById('documentList');
     documentList.replaceChildren();
     addTextRow(documentList, 'Convention de service', 'Contrat');
@@ -261,7 +282,7 @@
     if (!messagesResult.data?.length) messageList.innerHTML = '<p>Aucun message.</p>';
     const invoiceList = document.getElementById('invoiceList');
     invoiceList.replaceChildren();
-    (invoicesResult.data || []).forEach(invoice => addInvoiceCard(invoiceList, invoice));
+    (invoicesResult.data || []).forEach((invoice, index) => addInvoiceCard(invoiceList, invoice, index > 0));
     if (!invoicesResult.data?.length) invoiceList.innerHTML = '<p>Aucune facture disponible.</p>';
     const documentList = document.getElementById('documentList');
     documentList.replaceChildren();
