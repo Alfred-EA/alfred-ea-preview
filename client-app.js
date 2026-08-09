@@ -23,6 +23,7 @@
     element.textContent = message;
     element.style.color = error ? '#ff9f9f' : 'var(--gold2)';
   };
+  const invoiceLogoSource = fetch('index.html').then(response => response.text()).then(html => html.match(/<img class="hat" src="([^"]+)"/)?.[1] || null).catch(() => null);
 
   const dashboard = document.createElement('section');
   dashboard.className = 'client-dashboard';
@@ -90,7 +91,13 @@
     header.className = 'invoice-card-head';
     const brand = document.createElement('span');
     brand.className = 'invoice-brand';
-    brand.textContent = 'AE';
+    const logo = document.createElement('img');
+    logo.alt = 'Logo Alfred-EA';
+    brand.appendChild(logo);
+    invoiceLogoSource.then(source => {
+      if (source) logo.src = source;
+      else { logo.remove(); brand.textContent = 'AE'; }
+    });
     const identity = document.createElement('div');
     const number = document.createElement('strong');
     number.textContent = invoice.invoice_number;
