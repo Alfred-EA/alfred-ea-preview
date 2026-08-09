@@ -91,7 +91,7 @@
         ${row('Permis de conduire — recto', 'drivers_license_front', '<small>Document fictif</small>')}
         ${row('Permis de conduire — verso', 'drivers_license_back', '<small>Document fictif</small>')}
       </div>
-      <div class="section"><h2>Conversation privée</h2><div class="admin-conversation"><div class="message client-message"><strong>Client Démo</strong><p>Bonjour, mon compte MT5 est maintenant prêt.</p><small>Aujourd’hui · 09:15</small></div><div class="message admin-message"><strong>Alfred-EA</strong><p>Merci. Nous allons vérifier votre dossier et vous confirmer l’activation.</p><small>Aujourd’hui · 09:22</small></div></div><form class="admin-message-form"><textarea maxlength="5000" placeholder="Écrire un message privé au client" required></textarea><button class="button" type="submit">Envoyer au client</button><p class="muted message-status"></p></form></div>`;
+      <div class="section"><h2>Conversation privée</h2><div class="admin-conversation"><div class="message client-message"><strong>Client Démo</strong><p>Bonjour, mon compte MT5 est maintenant prêt.</p><small>Aujourd’hui · 09:15</small></div><div class="message admin-message"><strong>Alfred-EA</strong><p>Merci. Nous allons vérifier votre dossier et vous confirmer l’activation.</p><small>Aujourd’hui · 09:22</small></div></div><form class="admin-message-form"><textarea maxlength="5000" placeholder="Écrire un message privé au client"></textarea><label class="message-image-label">Image privée (JPG, PNG ou WebP, 10 Mo max)<input class="admin-message-image" type="file" accept="image/jpeg,image/png,image/webp"></label><button class="button" type="submit">Envoyer au client</button><p class="muted message-status"></p></form></div>`;
   }
 
   async function loadClient(client) {
@@ -104,8 +104,17 @@
       sb.from('mt5_credentials').select('id,slot,expires_at,created_at').eq('user_id', client.id).order('slot'),
       sb.from('memberships').select('plan_name,status,starts_on,renews_on,updated_at').eq('user_id', client.id).maybeSingle(),
       sb.from('invoices').select('amount_cents,currency,issued_on,status').eq('client_id', client.id).order('issued_on', {ascending:false}).limit(1).maybeSingle(),
-      sb.from('messages').select('body,created_at,sender_id').eq('client_id', client.id).order('created_at', {ascending:true})
+      sb.from('messages').select('body,created_at,sender_id,attachment_path,attachment_name,attachment_mime').eq('client_id', client.id).order('created_at', {ascending:true})
     ]);
+    const renderedMessages = await Promise.all((messages.data || []).map(async message => {
+      let attachmentHtml = '';
+      if (message.attachment_path) {
+        const { data: signedImage } = await sb.storage.from('client-documents').createSignedUrl(message.attachment_path, 600);
+        if (signedImage?.signedUrl) attachmentHtml = `<a href="${escapeHtml(signedImage.signedUrl)}" target="_blank" rel="noopener"><img src="${escapeHtml(signedImage.signedUrl)}" alt="${escapeHtml(message.attachment_name || 'Image privée')}" loading="lazy" style="display:block;max-width:min(100%,520px);max-height:420px;margin:.65rem 0;border-radius:12px;object-fit:contain"></a>`;
+      }
+      return `<div class="message ${message.sender_id === client.id ? 'client-message' : 'admin-message'}"><strong>${message.sender_id === client.id ? escapeHtml(client.full_name || 'Client') : 'Alfred-EA'}</strong>${message.body ? `<p>${escapeHtml(message.body)}</p>` : ''}${attachmentHtml}<small>${new Date(message.created_at).toLocaleString('fr-CA')}</small></div>`;
+    }));
+    const messagesHtml = renderedMessages.join('') || '<p class="muted">Aucun message pour ce client.</p>';
     const memberSince = membership.data?.starts_on || client.created_at;
     const memberSinceText = memberSince ? new Date(memberSince).toLocaleDateString('fr-CA', {year:'numeric',month:'long',day:'numeric'}) : 'À confirmer';
     const invoiceAmount = latestInvoice.data ? (latestInvoice.data.amount_cents / 100).toLocaleString('fr-CA', {style:'currency',currency:latestInvoice.data.currency}) : 'Aucune facturation';
@@ -120,10 +129,16 @@
       return row(`Compte ${account.slot} · ${account.broker}`, `${account.account_number} · ${account.server_name || 'Serveur non indiqué'}`, action);
     }).join('') || '<p class="muted">Aucun compte enregistré.</p>';
     html += '</div><div class="section"><h2>Documents privés</h2>';
-    html += (documents.data || []).map(document => row(document.display_name, document.category, `<div class="actions"><button class="button open-document" data-path="${escapeHtml(document.storage_path)}">Ouvrir</button></div>`)).join('') || '<p class="muted">Aucun document.</p>';
+    html += (documents.data || []).map(document => {
+      const isLicense = ['drivers_license_front','drivers_license_back'].includes(document.category);
+      const action = isLicense
+        ? `<div class="actions"><button class="button open-license" data-id="${document.id}" type="button">Ouvrir avec le PIN administrateur</button><small>Chaque accès est inscrit au journal de sécurité.</small></div>`
+        : `<div class="actions"><button class="button open-document" data-path="${escapeHtml(document.storage_path)}" type="button">Ouvrir</button></div>`;
+      return row(document.display_name, document.category, action);
+    }).join('') || '<p class="muted">Aucun document.</p>';
     html += '</div><div class="section"><h2>Conversation privée</h2><div class="admin-conversation">';
-    html += (messages.data || []).map(message => `<div class="message ${message.sender_id === client.id ? 'client-message' : 'admin-message'}"><strong>${message.sender_id === client.id ? escapeHtml(client.full_name || 'Client') : 'Alfred-EA'}</strong><p>${escapeHtml(message.body)}</p><small>${new Date(message.created_at).toLocaleString('fr-CA')}</small></div>`).join('') || '<p class="muted">Aucun message pour ce client.</p>';
-    html += '</div><form class="admin-message-form"><textarea maxlength="5000" placeholder="Écrire un message privé au client" required></textarea><button class="button" type="submit">Envoyer au client</button><p class="muted message-status"></p></form></div>';
+    html += messagesHtml;
+    html += '</div><form class="admin-message-form"><textarea maxlength="5000" placeholder="Écrire un message privé au client"></textarea><label>Ajouter une image privée (JPG, PNG ou WebP · 10 Mo max.)<input class="admin-message-image" type="file" accept="image/jpeg,image/png,image/webp"></label><button class="button" type="submit">Envoyer au client</button><p class="muted message-status"></p></form></div>';
     details.innerHTML = html;
   }
 
@@ -188,10 +203,28 @@
       const actions=reveal.closest('.actions');
       actions.innerHTML=`<form class="credential-gate" data-id="${reveal.dataset.id}"><label>PIN administrateur à 4 chiffres</label><input type="password" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" autocomplete="one-time-code" required><button class="button" type="submit">Vérifier et afficher pour ce compte</button><p class="muted gate-status"></p></form>`;
     }
+    const openLicense = event.target.closest('.open-license');
+    if (openLicense) {
+      const actions = openLicense.closest('.actions');
+      actions.innerHTML = `<form class="license-gate" data-id="${openLicense.dataset.id}"><label>PIN administrateur à 4 chiffres</label><input type="password" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" autocomplete="one-time-code" required><button class="button" type="submit">Vérifier et ouvrir la licence</button><p class="muted license-status"></p></form>`;
+    }
     const open = event.target.closest('.open-document');
     if (open) { const {data,error}=await sb.storage.from('client-documents').createSignedUrl(open.dataset.path,300); if(error) alert('Document inaccessible.'); else window.open(data.signedUrl,'_blank','noopener'); }
   });
   details.addEventListener('submit', async event => {
+    const licenseGate=event.target.closest('.license-gate');
+    if(licenseGate){
+      event.preventDefault();
+      const pin=licenseGate.querySelector('input').value.trim(); const feedback=licenseGate.querySelector('.license-status'); const submitButton=licenseGate.querySelector('button');
+      if(!/^\d{4}$/.test(pin)){feedback.textContent='Entrez un PIN de exactement 4 chiffres.';return;}
+      submitButton.disabled=true; feedback.textContent='Vérification du PIN…';
+      const {data:path,error}=await sb.rpc('authorize_license_view',{p_document_id:licenseGate.dataset.id,p_pin:pin});
+      licenseGate.querySelector('input').value='';
+      if(error){feedback.textContent='PIN incorrect, verrouillé ou document indisponible.';submitButton.disabled=false;return;}
+      const {data:signed,error:signError}=await sb.storage.from('client-documents').createSignedUrl(path,300);
+      if(signError){feedback.textContent='Licence inaccessible.';submitButton.disabled=false;return;}
+      feedback.textContent='Accès autorisé et inscrit au journal de sécurité.'; window.open(signed.signedUrl,'_blank','noopener'); submitButton.disabled=false; return;
+    }
     const approvalGate=event.target.closest('.member-approval-gate');
     if(approvalGate){
       event.preventDefault();
@@ -205,16 +238,18 @@
     const messageForm=event.target.closest('.admin-message-form');
     if(messageForm){
       event.preventDefault();
-      const textarea=messageForm.querySelector('textarea'); const feedback=messageForm.querySelector('.message-status'); const body=textarea.value.trim();
-      if(!body||!selectedClient) return;
+      const textarea=messageForm.querySelector('textarea'); const imageInput=messageForm.querySelector('.admin-message-image'); const feedback=messageForm.querySelector('.message-status'); const body=textarea.value.trim(); const imageFile=imageInput.files[0];
+      if((!body&&!imageFile)||!selectedClient){feedback.textContent='Écrivez un message ou ajoutez une image.';return;}
+      if(imageFile&&(!['image/jpeg','image/png','image/webp'].includes(imageFile.type)||imageFile.size>10*1024*1024)){feedback.textContent='Choisissez une image JPG, PNG ou WebP de 10 Mo maximum.';return;}
       if(selectedClient.id==='demo'){
-        const conversation=messageForm.previousElementSibling;
-        conversation.insertAdjacentHTML('beforeend',`<div class="message admin-message"><strong>Alfred-EA</strong><p>${escapeHtml(body)}</p><small>À l’instant · démonstration</small></div>`);
-        textarea.value=''; feedback.textContent='Message de démonstration — aucune donnée enregistrée.'; return;
+        const conversation=messageForm.previousElementSibling; const preview=imageFile?`<img src="${URL.createObjectURL(imageFile)}" alt="Aperçu" style="display:block;max-width:min(100%,520px);max-height:420px;margin:.65rem 0;border-radius:12px;object-fit:contain">`:'';
+        conversation.insertAdjacentHTML('beforeend',`<div class="message admin-message"><strong>Alfred-EA</strong>${body?`<p>${escapeHtml(body)}</p>`:''}${preview}<small>À l’instant · démonstration</small></div>`);
+        textarea.value=''; imageInput.value=''; feedback.textContent='Message de démonstration — aucune donnée enregistrée.'; return;
       }
-      const submitButton=messageForm.querySelector('button'); submitButton.disabled=true; feedback.textContent='Envoi…';
-      const {data:{user}}=await sb.auth.getUser();
-      const {error}=await sb.from('messages').insert({client_id:selectedClient.id,sender_id:user.id,body});
+      const submitButton=messageForm.querySelector('button'); submitButton.disabled=true; feedback.textContent=imageFile?'Téléversement privé de l’image…':'Envoi…';
+      const {data:{user}}=await sb.auth.getUser(); let attachment={};
+      if(imageFile){const extension=imageFile.name.split('.').pop().toLowerCase().replace(/[^a-z0-9]/g,'')||'jpg'; const path=`${selectedClient.id}/messages/admin-${Date.now()}-${crypto.randomUUID()}.${extension}`; const {error:uploadError}=await sb.storage.from('client-documents').upload(path,imageFile,{contentType:imageFile.type}); if(uploadError){feedback.textContent='L’image n’a pas pu être téléversée.';submitButton.disabled=false;return;} attachment={attachment_path:path,attachment_name:imageFile.name,attachment_mime:imageFile.type};}
+      const {error}=await sb.from('messages').insert({client_id:selectedClient.id,sender_id:user.id,body:body||null,...attachment});
       if(error){feedback.textContent='Le message n’a pas pu être envoyé.';submitButton.disabled=false;return;}
       await loadClient(selectedClient); return;
     }
