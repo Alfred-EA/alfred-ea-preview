@@ -8,6 +8,7 @@
   const loginForm = document.getElementById('loginForm');
   const signupForm = document.getElementById('signupForm');
   const layout = document.querySelector('.layout');
+  let recoveryMode = location.hash.includes('type=recovery') || params.get('type') === 'recovery';
   const notice = document.querySelector('.demo-notice');
   notice.innerHTML = '<strong>Connexion sécurisée.</strong> Vos informations sont protégées et chaque client peut uniquement consulter son propre dossier.';
   let demoMode = false;
@@ -41,6 +42,47 @@
       <article class="dashboard-panel account-settings-panel"><h2>Paramètres de connexion</h2><p class="security-note">Confirmez votre mot de passe actuel avant de modifier votre adresse courriel ou votre mot de passe.</p><form id="accountSettingsForm" class="secure-form"><div class="settings-grid"><div class="compact-field"><label for="settingsEmail">Nouvelle adresse courriel</label><input id="settingsEmail" type="email" autocomplete="email"></div><div class="compact-field"><label for="settingsCurrentPassword">Mot de passe actuel</label><input id="settingsCurrentPassword" type="password" autocomplete="current-password" required></div><div class="compact-field"><label for="settingsNewPassword">Nouveau mot de passe</label><input id="settingsNewPassword" type="password" autocomplete="new-password" minlength="10" placeholder="Laisser vide pour conserver"></div><div class="compact-field"><label for="settingsConfirmPassword">Confirmer le nouveau mot de passe</label><input id="settingsConfirmPassword" type="password" autocomplete="new-password" minlength="10"></div></div><button class="submit" type="submit">Enregistrer mes changements</button><p class="form-feedback" id="accountSettingsStatus" role="status"></p></form></article>
     </div>`;
   document.querySelector('.page').appendChild(dashboard);
+
+  const recoveryPanel = document.createElement('section');
+  recoveryPanel.className = 'auth-card password-recovery-panel';
+  recoveryPanel.hidden = true;
+  recoveryPanel.innerHTML = `<div class="eyebrow">RÉCUPÉRATION DU COMPTE</div><h1>Choisir un nouveau mot de passe</h1><p>Entrez un nouveau mot de passe sécurisé pour votre compte Alfred-EA.</p><form id="recoveryForm" class="form"><div class="field"><label for="recoveryPassword">Nouveau mot de passe</label><input id="recoveryPassword" type="password" autocomplete="new-password" minlength="12" required></div><div class="field"><label for="recoveryPasswordConfirm">Confirmer le nouveau mot de passe</label><input id="recoveryPasswordConfirm" type="password" autocomplete="new-password" minlength="12" required></div><button class="submit" type="submit">Enregistrer le nouveau mot de passe</button><p class="status" id="recoveryStatus" hidden></p></form>`;
+  document.querySelector('.page').appendChild(recoveryPanel);
+
+  const showRecoveryPanel = () => {
+    recoveryMode = true;
+    layout.hidden = true;
+    dashboard.hidden = true;
+    recoveryPanel.hidden = false;
+    document.getElementById('recoveryPassword').focus();
+  };
+
+  document.getElementById('recoveryForm').addEventListener('submit', async event => {
+    event.preventDefault();
+    const password = document.getElementById('recoveryPassword').value;
+    const confirmation = document.getElementById('recoveryPasswordConfirm').value;
+    const feedback = document.getElementById('recoveryStatus');
+    feedback.hidden = false;
+    if (password.length < 12 || password !== confirmation) {
+      feedback.textContent = 'Le mot de passe doit contenir au moins 12 caractères et les deux champs doivent correspondre.';
+      feedback.style.color = '#ff9f9f';
+      return;
+    }
+    const submit = event.currentTarget.querySelector('button[type="submit"]');
+    submit.disabled = true;
+    feedback.textContent = 'Enregistrement sécurisé…';
+    feedback.style.color = 'var(--gold2)';
+    const { error } = await sb.auth.updateUser({ password });
+    if (error) {
+      submit.disabled = false;
+      feedback.textContent = error.message;
+      feedback.style.color = '#ff9f9f';
+      return;
+    }
+    feedback.textContent = 'Mot de passe modifié. Vous pouvez maintenant vous reconnecter.';
+    await sb.auth.signOut();
+    setTimeout(() => location.replace('client-space.html'), 1000);
+  });
 
   function displayClientFx() {
     const account = (document.MTIntelligenceAccounts || []).find(item => item.userid === 'CQIPKZ');
@@ -432,12 +474,18 @@
   });
   document.getElementById('logoutButton').addEventListener('click', () => demoMode ? location.reload() : sb.auth.signOut());
   async function routeSignedInUser(user) {
+    if (recoveryMode) return;
     const {data:admin} = await sb.from('admin_users').select('user_id').eq('user_id', user.id).maybeSingle();
     if (admin) { location.replace('admin.html'); return; }
     if (safeReturn) { location.replace(safeReturn); return; }
     await loadDashboard(user);
   }
   if (params.get('mode') === 'signup') document.getElementById('signupTab').click();
-  sb.auth.onAuthStateChange((_event, session) => session?.user ? routeSignedInUser(session.user) : (dashboard.hidden = true, layout.hidden = false));
-  sb.auth.getSession().then(({ data }) => data.session?.user && routeSignedInUser(data.session.user));
+  sb.auth.onAuthStateChange((event, session) => {
+    if (event === 'PASSWORD_RECOVERY') { showRecoveryPanel(); return; }
+    if (session?.user) routeSignedInUser(session.user);
+    else if (!recoveryMode) { dashboard.hidden = true; recoveryPanel.hidden = true; layout.hidden = false; }
+  });
+  if (recoveryMode) showRecoveryPanel();
+  sb.auth.getSession().then(({ data }) => data.session?.user && !recoveryMode && routeSignedInUser(data.session.user));
 })();
