@@ -3,6 +3,8 @@
   const PUBLISHABLE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxzdGptYW54enBzbnV4b25zcGZjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU2NzAxNjMsImV4cCI6MjEwMTI0NjE2M30.BVjCyTVWsODT6cpRKCSak5PI5a_4uhxifHP5z_ScqO8';
   const sb = window.supabase.createClient(PROJECT_URL, PUBLISHABLE_KEY);
   const params = new URLSearchParams(location.search);
+  const authHash = new URLSearchParams(location.hash.slice(1));
+  let emailChangeReturn = authHash.get('type') === 'email_change' || params.get('type') === 'email_change';
   const requestedReturn = params.get('return');
   const safeReturn = requestedReturn === 'broker-account.html' ? requestedReturn : null;
   const loginForm = document.getElementById('loginForm');
@@ -365,7 +367,7 @@
       const changes = {};
       if (newEmail && newEmail !== user.email) changes.email = newEmail;
       if (newPassword) changes.password = newPassword;
-      const { error: updateError } = await sb.auth.updateUser(changes);
+      const { error: updateError } = await sb.auth.updateUser(changes, { emailRedirectTo: `${location.origin}${location.pathname}` });
       button.disabled = false;
       if (updateError) { feedback.textContent = `La modification a échoué : ${updateError.message}`; return; }
       document.getElementById('settingsCurrentPassword').value = '';
@@ -479,6 +481,18 @@
     if (admin) { location.replace('admin.html'); return; }
     if (safeReturn) { location.replace(safeReturn); return; }
     await loadDashboard(user);
+    if (emailChangeReturn) {
+      const feedback = document.getElementById('accountSettingsStatus');
+      feedback.textContent = user.new_email
+        ? 'Première confirmation reçue. Confirmez également le lien envoyé à l’autre adresse courriel.'
+        : 'Votre nouvelle adresse courriel est confirmée et active.';
+      feedback.style.color = 'var(--gold2)';
+      emailChangeReturn = false;
+      const cleanUrl = new URL(location.href);
+      cleanUrl.searchParams.delete('type');
+      cleanUrl.hash = '';
+      history.replaceState(null, '', `${cleanUrl.pathname}${cleanUrl.search}`);
+    }
   }
   if (params.get('mode') === 'signup') document.getElementById('signupTab').click();
   sb.auth.onAuthStateChange((event, session) => {
