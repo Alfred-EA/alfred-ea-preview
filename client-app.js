@@ -96,7 +96,10 @@
 
   function showDemoDashboard() {
     demoMode = true;
+    const loginStatus = document.getElementById('loginStatus');
+    if (loginStatus) { loginStatus.hidden = true; loginStatus.textContent = ''; }
     layout.hidden = true;
+    layout.style.display = 'none';
     dashboard.hidden = false;
     dashboard.classList.add('demo-dashboard');
     document.getElementById('welcomeName').textContent = 'Bonjour, Admin 1';
@@ -117,6 +120,7 @@
     addTextRow(documentList, 'Convention de service', 'Contrat');
     addTextRow(documentList, 'Confirmation du compte courtier', 'Compte');
     addTextRow(documentList, 'Guide de démarrage', 'Information');
+    dashboard.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
   demoButton.addEventListener('click', showDemoDashboard);
 
