@@ -201,7 +201,11 @@
       const account = (mt5Result.data || []).find(item => item.slot === slot);
       document.getElementById(`broker${slot}`).value = account?.broker || '';
       document.getElementById(`server${slot}`).value = account?.server_name || '';
-      document.getElementById(`account${slot}`).value = account?.account_number || '';
+      const accountInput = document.getElementById(`account${slot}`);
+      const passwordInput = document.getElementById(`mt5Password${slot}`);
+      accountInput.value = account?.account_number || '';
+      accountInput.dataset.saved = account ? 'true' : 'false';
+      passwordInput.placeholder = account ? 'Laisser vide pour conserver' : 'Requis pour ce compte';
     }
   }
 
@@ -242,11 +246,12 @@
       for (let slot = 1; slot <= 5; slot += 1) {
         const broker = document.getElementById(`broker${slot}`).value;
         const server_name = document.getElementById(`server${slot}`).value.trim();
-        const account_number = document.getElementById(`account${slot}`).value.trim();
+        const accountInput = document.getElementById(`account${slot}`);
+        const account_number = accountInput.value.trim();
         const mt5_password = document.getElementById(`mt5Password${slot}`).value;
         if (!broker && !server_name && !account_number) continue;
         if (!broker || !/^[0-9]{3,30}$/.test(account_number)) return document.getElementById('mt5Status').textContent = `Vérifiez le courtier et le numéro du compte ${slot}.`;
-        if (mt5_password.length < 4) return document.getElementById('mt5Status').textContent = `Le mot de passe MT5 est requis pour le compte ${slot}.`;
+        if (accountInput.dataset.saved !== 'true' && mt5_password.length < 4) return document.getElementById('mt5Status').textContent = `Le mot de passe MT5 est requis pour le nouveau compte ${slot}.`;
         accounts.push({ user_id: user.id, slot, broker, server_name: server_name || null, account_number, updated_at: new Date().toISOString() });
       }
       const { error: deleteError } = await sb.from('mt5_accounts').delete().eq('user_id', user.id);
@@ -259,6 +264,10 @@
         passwordInput.value = '';
         if (credentialError) { document.getElementById('mt5Status').textContent = `Comptes enregistrés, mais le mot de passe du compte ${slot} n’a pas été transmis.`; return; }
       }
+      accounts.forEach(account => {
+        document.getElementById(`account${account.slot}`).dataset.saved = 'true';
+        document.getElementById(`mt5Password${account.slot}`).placeholder = 'Laisser vide pour conserver';
+      });
       document.getElementById('mt5Status').textContent = 'Vos comptes sont enregistrés. Tout mot de passe fourni reste disponible jusqu’à son remplacement et chaque consultation administrateur sera vérifiée et journalisée.';
       return;
     }
