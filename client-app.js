@@ -116,6 +116,27 @@
     amount.className = 'invoice-amount';
     amount.textContent = (invoice.amount_cents / 100).toLocaleString('fr-CA', { style: 'currency', currency: invoice.currency });
     card.append(header, description, amount);
+    if (invoice.file_path) {
+      const pdfLink = document.createElement('a');
+      pdfLink.className = 'invoice-pdf-link';
+      pdfLink.textContent = 'Voir le PDF';
+      pdfLink.target = '_blank';
+      pdfLink.rel = 'noopener';
+      if (invoice.file_path.startsWith('data:application/pdf')) {
+        pdfLink.href = invoice.file_path;
+        pdfLink.download = `${invoice.invoice_number}.pdf`;
+      } else {
+        pdfLink.href = '#';
+        pdfLink.setAttribute('aria-disabled', 'true');
+        sb.storage.from('client-documents').createSignedUrl(invoice.file_path, 600).then(({ data }) => {
+          if (data?.signedUrl) {
+            pdfLink.href = data.signedUrl;
+            pdfLink.removeAttribute('aria-disabled');
+          }
+        });
+      }
+      card.appendChild(pdfLink);
+    }
     container.appendChild(card);
   };
 
@@ -194,7 +215,7 @@
       sb.from('profiles').select('full_name').eq('id', user.id).maybeSingle(),
       sb.from('memberships').select('plan_name,status,renews_on').eq('user_id', user.id).maybeSingle(),
       sb.from('messages').select('body,created_at,sender_id,attachment_path,attachment_name,attachment_mime').eq('client_id', user.id).order('created_at', { ascending: true }),
-      sb.from('invoices').select('invoice_number,description,amount_cents,currency,status,issued_on').eq('client_id', user.id).order('created_at', { ascending: false }),
+      sb.from('invoices').select('invoice_number,description,amount_cents,currency,status,issued_on,file_path').eq('client_id', user.id).order('issued_on', { ascending: false }),
       sb.from('documents').select('id,display_name,category,storage_path,created_at').eq('client_id', user.id).order('created_at', { ascending: false }),
       sb.from('mt5_accounts').select('slot,broker,server_name,account_number').eq('user_id', user.id).order('slot')
     ]);
