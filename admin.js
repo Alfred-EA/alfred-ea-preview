@@ -122,7 +122,9 @@
     const renewalDate = membership.data?.renews_on ? new Date(`${membership.data.renews_on}T12:00:00`).toLocaleDateString('fr-CA', {year:'numeric',month:'long',day:'numeric'}) : 'À confirmer';
     const awaitingApproval = client.admin_group === 'new' || !membership.data || membership.data.status === 'pending';
     const approvalAction = awaitingApproval ? '<div class="actions"><button class="button approve-member" type="button">Approuver et activer le membre</button><small class="approval-status">Réservé aux administrateurs · confirmez le paiement avant l’approbation.</small></div>' : '';
-    let html = `<p class="muted">Dossier ${escapeHtml(client.id)}</p><div class="section"><h2>Abonnement</h2>${row(`${membership.data?.plan_name || 'À confirmer'} · ${membership.data?.status || 'En attente'}`, `Membre depuis le ${memberSinceText}`, approvalAction)}${row(invoiceAmount, `Dernière facturation : ${billingDate}`)}${row('Prochain renouvellement', renewalDate)}</div><div class="section"><h2>Comptes MT5</h2>`;
+    const group = client.admin_group || 'new';
+    const management = `<section class="client-management"><h2>Gestion du client</h2><p class="muted">Déplacez ce client dans une autre section ou supprimez définitivement son compte.</p><form class="client-management-form" data-user-id="${escapeHtml(client.id)}"><label>Section du client<select name="target_status"><option value="new"${group === 'new' ? ' selected' : ''}>Nouveaux membres</option><option value="active"${group === 'active' ? ' selected' : ''}>Abonnements actifs</option><option value="unpaid"${group === 'unpaid' ? ' selected' : ''}>Non payés</option><option value="inactive"${group === 'inactive' ? ' selected' : ''}>Inactifs</option></select></label><label>PIN administrateur<input name="admin_pin" type="password" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" autocomplete="one-time-code" required></label><button class="button move-client" data-action="move" type="submit">Déplacer le client</button><button class="button danger delete-client" data-action="delete" type="submit">Supprimer définitivement le client</button><p class="muted management-status">Le PIN est exigé pour chaque modification.</p></form></section>`;
+    let html = `<p class="muted">Dossier ${escapeHtml(client.id)}</p>${management}<div class="section"><h2>Abonnement</h2>${row(`${membership.data?.plan_name || 'À confirmer'} · ${membership.data?.status || 'En attente'}`, `Membre depuis le ${memberSinceText}`, approvalAction)}${row(invoiceAmount, `Dernière facturation : ${billingDate}`)}${row('Prochain renouvellement', renewalDate)}</div><div class="section"><h2>Comptes MT5</h2>`;
     html += (accounts.data || []).map(account => {
       const credential = (credentials.data || []).find(item => item.slot === account.slot);
       const action = credential ? `<div class="actions"><button class="button reveal" data-id="${credential.id}">Accéder avec mon PIN administrateur</button></div>` : '<small>Aucun mot de passe disponible</small>';
@@ -210,6 +212,23 @@
     if (open) { const {data,error}=await sb.storage.from('client-documents').createSignedUrl(open.dataset.path,300); if(error) alert('Document inaccessible.'); else window.open(data.signedUrl,'_blank','noopener'); }
   });
   details.addEventListener('submit', async event => {
+    const managementForm=event.target.closest('.client-management-form');
+    if(managementForm){
+      event.preventDefault();
+      const action=event.submitter?.dataset.action; const pin=managementForm.elements.admin_pin.value.trim(); const feedback=managementForm.querySelector('.management-status');
+      if(!/^\d{4}$/.test(pin)){feedback.textContent='Entrez un PIN de exactement 4 chiffres.';return;}
+      if(action==='delete'){
+        if(!confirm('Supprimer définitivement ce client, son accès, ses comptes MT5, ses documents, ses messages et ses factures? Cette action est irréversible.')){managementForm.elements.admin_pin.value='';return;}
+        event.submitter.disabled=true; feedback.textContent='Vérification du PIN et suppression définitive…';
+        const {error}=await sb.rpc('admin_delete_client',{p_user_id:managementForm.dataset.userId,p_pin:pin});
+        if(error){feedback.textContent='Suppression refusée : PIN incorrect, compte administrateur ou erreur serveur.';event.submitter.disabled=false;return;}
+        selectedClient=null; details.innerHTML='<p class="status">Client supprimé définitivement.</p>'; setTimeout(()=>location.reload(),700); return;
+      }
+      const target=managementForm.elements.target_status.value; event.submitter.disabled=true; feedback.textContent='Vérification du PIN et déplacement…';
+      const {error}=await sb.rpc('admin_set_client_status',{p_user_id:managementForm.dataset.userId,p_status:target,p_pin:pin});
+      if(error){feedback.textContent='Déplacement refusé : vérifiez le PIN et réessayez.';event.submitter.disabled=false;return;}
+      feedback.textContent='Client déplacé avec succès.'; setTimeout(()=>location.reload(),600); return;
+    }
     const licenseGate=event.target.closest('.license-gate');
     if(licenseGate){
       event.preventDefault();
