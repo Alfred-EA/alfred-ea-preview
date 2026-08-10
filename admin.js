@@ -15,10 +15,32 @@
   const adminPinPanel = document.getElementById('adminPinPanel');
   const adminPinForm = document.getElementById('adminPinForm');
   const adminPinStatus = document.getElementById('adminPinStatus');
+  const monthlySummary = document.getElementById('monthlySummary');
+  const summaryMonth = document.getElementById('summaryMonth');
+  const monthlyIncome = document.getElementById('monthlyIncome');
+  const monthlySubscriptions = document.getElementById('monthlySubscriptions');
+  const monthlySummaryStatus = document.getElementById('monthlySummaryStatus');
   let selectedMt5File = null;
 
   const row = (title, subtitle, actions = '') => `<div class="row"><strong>${escapeHtml(title)}</strong><small>${escapeHtml(subtitle || '')}</small>${actions}</div>`;
   const escapeHtml = value => String(value || '').replace(/[&<>'"]/g, character => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[character]));
+
+  async function loadMonthlySummary(monthValue) {
+    if (!/^\d{4}-\d{2}$/.test(monthValue || '')) return;
+    const [year, month] = monthValue.split('-').map(Number);
+    const start = `${year}-${String(month).padStart(2,'0')}-01`;
+    const next = new Date(Date.UTC(year, month, 1)).toISOString().slice(0,10);
+    monthlyIncome.textContent = '…'; monthlySubscriptions.textContent = '…'; monthlySummaryStatus.textContent = '';
+    const [invoices, memberships] = await Promise.all([
+      sb.from('invoices').select('amount_cents,currency').eq('status','paid').gte('issued_on',start).lt('issued_on',next),
+      sb.from('memberships').select('user_id').gte('starts_on',start).lt('starts_on',next)
+    ]);
+    if (invoices.error || memberships.error) { monthlyIncome.textContent='—'; monthlySubscriptions.textContent='—'; monthlySummaryStatus.textContent='Impossible de charger les statistiques mensuelles.'; return; }
+    const totals = (invoices.data || []).reduce((map, invoice) => map.set(invoice.currency,(map.get(invoice.currency)||0)+invoice.amount_cents), new Map());
+    monthlyIncome.textContent = totals.size ? [...totals].map(([currency,cents]) => (cents/100).toLocaleString('fr-CA',{style:'currency',currency})).join(' + ') : '0,00 $';
+    monthlySubscriptions.textContent = String(new Set((memberships.data || []).map(item => item.user_id)).size);
+    const invoiceCount=(invoices.data || []).length; document.getElementById('monthlyIncomeHelp').textContent = `${invoiceCount} facture${invoiceCount === 1 ? '' : 's'} payée${invoiceCount === 1 ? '' : 's'}`;
+  }
 
   function selectMt5File(file) {
     if (!file) return;
@@ -156,7 +178,8 @@
     if (error) { status.textContent = 'Impossible de charger les dossiers.'; return; }
     if (membershipError) { status.textContent = 'Impossible de charger les abonnements.'; return; }
     const {data:hasPin} = await sb.rpc('has_admin_pin');
-    status.hidden = true; grid.hidden = false; mt5Publisher.hidden = false; adminPinPanel.hidden = false; clients.replaceChildren();
+    status.hidden = true; monthlySummary.hidden = false; grid.hidden = false; mt5Publisher.hidden = false; adminPinPanel.hidden = false; clients.replaceChildren();
+    const today = new Date(); summaryMonth.value = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}`; loadMonthlySummary(summaryMonth.value);
     document.getElementById('adminPinHelp').textContent = hasPin ? 'Entrez votre PIN actuel avant de choisir un nouveau PIN.' : 'Créez votre PIN de 4 chiffres avant d’approuver un membre ou d’afficher un mot de passe MT5.';
     document.getElementById('currentPinField').hidden = !hasPin;
     document.getElementById('adminCurrentPinInput').required = Boolean(hasPin);
@@ -300,5 +323,6 @@
   });
   adminPinForm.addEventListener('submit',async event=>{event.preventDefault();const currentInput=document.getElementById('adminCurrentPinInput');const input=document.getElementById('adminPinInput');const currentPin=currentInput.value.trim();const pin=input.value.trim();if(!/^\d{4}$/.test(pin)||(!document.getElementById('currentPinField').hidden&&!/^\d{4}$/.test(currentPin))){adminPinStatus.textContent='Chaque PIN doit contenir exactement 4 chiffres.';return;}const button=adminPinForm.querySelector('button');button.disabled=true;adminPinStatus.textContent='Vérification et enregistrement…';const {error}=await sb.rpc('set_admin_pin',{p_current_pin:currentPin||null,p_new_pin:pin});button.disabled=false;if(error){adminPinStatus.textContent='PIN actuel incorrect, verrouillé ou nouveau PIN invalide.';return;}currentInput.value='';input.value='';document.getElementById('currentPinField').hidden=false;currentInput.required=true;adminPinStatus.textContent='Nouveau PIN administrateur enregistré.';document.getElementById('adminPinHelp').textContent='Entrez votre PIN actuel avant de choisir un nouveau PIN.';});
   document.getElementById('logout').addEventListener('click',async()=>{await sb.auth.signOut();location.href='client-space.html';});
+  summaryMonth.addEventListener('change',()=>loadMonthlySummary(summaryMonth.value));
   init();
 })();
