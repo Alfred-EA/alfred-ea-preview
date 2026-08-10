@@ -36,4 +36,9 @@
     link.textContent = 'Espace client';
     navigation.appendChild(link);
   }
+  const footer = document.querySelector('footer .wrap, footer');
+  if (footer) {
+    if (!footer.querySelector('a[href="privacy.html"]')) footer.insertAdjacentHTML('beforeend', ' · <a href="privacy.html">Politique de confidentialité</a>');
+    if (!footer.querySelector('a[href="disclaimer.html"]')) footer.insertAdjacentHTML('beforeend', ' · <a href="disclaimer.html">Conditions et clauses de non-responsabilité</a>');
+  }
 })();
