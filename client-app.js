@@ -6,7 +6,7 @@
   const authHash = new URLSearchParams(location.hash.slice(1));
   let emailChangeReturn = authHash.get('type') === 'email_change' || params.get('type') === 'email_change';
   const requestedReturn = params.get('return');
-  const safeReturn = requestedReturn === 'broker-account.html' ? requestedReturn : null;
+  const safeReturn = ['broker-account.html', 'subscription.html'].includes(requestedReturn) ? requestedReturn : null;
   const loginForm = document.getElementById('loginForm');
   const signupForm = document.getElementById('signupForm');
   const layout = document.querySelector('.layout');
@@ -36,7 +36,7 @@
     </div>
     <div class="dashboard-columns">
       <article class="dashboard-panel"><h2>Discussion avec Alfred-EA</h2><p class="chat-note">Vos messages restent dans votre dossier privé et sont visibles par l’équipe administratrice.</p><div class="message-list chat-list" id="messageList"><p>Aucun message.</p></div><form id="messageForm" class="message-form"><textarea id="messageBody" maxlength="5000" placeholder="Écrire un message privé à Alfred-EA"></textarea><label class="message-image-picker">Ajouter une image privée (JPG, PNG ou WebP · 10 Mo max.)<input id="messageImage" type="file" accept="image/jpeg,image/png,image/webp"></label><button class="submit" type="submit">Envoyer le message</button><p id="messageStatus" class="document-upload-status"></p></form></article>
-      <article class="dashboard-panel"><h2>Mes factures</h2><div id="invoiceList"><p>Aucune facture disponible.</p></div><button class="dashboard-action subscription-manage" id="manageSubscriptionButton" type="button" aria-expanded="false" aria-controls="subscriptionManagePanel">Gérer mon abonnement</button><div class="subscription-manage-panel" id="subscriptionManagePanel" hidden><p>Modifiez votre niveau ou demandez l’annulation avant le prochain renouvellement.</p><div class="subscription-actions"><a class="subscription-link" href="subscription.html">Voir ou modifier mon niveau</a><button class="subscription-cancel" id="cancelSubscriptionButton" type="button">Demander l’annulation</button></div><p id="subscriptionManageStatus">L’annulation est confirmée par l’équipe Alfred-EA avant de prendre effet.</p></div><h2 class="section-space">Mes documents</h2><div id="documentList"><p>Aucun document disponible.</p></div></article>
+      <article class="dashboard-panel"><h2>Mes factures</h2><div id="invoiceList"><p>Aucune facture disponible.</p></div><div class="subscription-manage-panel"><p>Gérez votre paiement ou votre abonnement directement dans le portail Stripe sécurisé.</p><button class="subscription-payment" id="paymentMethodButton" type="button">Enregistrer ou modifier mon mode de paiement</button><button class="subscription-cancel" id="cancelSubscriptionButton" type="button">Gérer ou annuler mon abonnement</button><a class="subscription-link" href="subscription.html">Voir les niveaux d’abonnement</a><p id="subscriptionManageStatus">Stripe confirme immédiatement les modifications effectuées.</p></div><h2 class="section-space">Mes documents</h2><div id="documentList"><p>Aucun document disponible.</p></div></article>
     </div>
     <div class="secure-sections">
       <article class="dashboard-panel"><h2>Mes comptes MT5</h2><p class="security-note">Enregistrez jusqu’à cinq comptes. Le mot de passe est chiffré et chaque consultation exige une nouvelle authentification administrateur.</p><form id="mt5Form" class="secure-form"><div id="mt5Rows"></div><button class="submit" type="submit">Enregistrer et transmettre</button><p class="form-feedback" id="mt5Status" role="status"></p></form></article>
@@ -155,7 +155,18 @@
     amount.className = 'invoice-amount';
     amount.textContent = (invoice.amount_cents / 100).toLocaleString('fr-CA', { style: 'currency', currency: invoice.currency });
     card.append(header, description, amount);
-    if (invoice.file_path) {
+    const stripePdfUrl = invoice.stripe_pdf_url || '';
+    const hostedInvoiceUrl = invoice.stripe_hosted_url || '';
+    if (hostedInvoiceUrl && ['open', 'overdue'].includes(invoice.status)) {
+      const payLink = document.createElement('a');
+      payLink.className = 'invoice-pay-link';
+      payLink.href = hostedInvoiceUrl;
+      payLink.target = '_blank';
+      payLink.rel = 'noopener';
+      payLink.textContent = 'Payer cette facture';
+      card.appendChild(payLink);
+    }
+    if (invoice.file_path || stripePdfUrl) {
       const actions = document.createElement('div');
       actions.className = 'invoice-pdf-actions';
       const previewButton = document.createElement('button');
@@ -185,7 +196,9 @@
         previewButton.setAttribute('aria-expanded', String(!preview.hidden));
         previewButton.textContent = preview.hidden ? 'Agrandir la facture' : 'Réduire la facture';
       });
-      if (invoice.file_path.startsWith('data:application/pdf')) {
+      if (stripePdfUrl) {
+        setPdfUrl(stripePdfUrl);
+      } else if (invoice.file_path.startsWith('data:application/pdf')) {
         setPdfUrl(invoice.file_path);
         pdfLink.download = `${invoice.invoice_number}.pdf`;
       } else {
@@ -250,16 +263,23 @@
     container.appendChild(bubble);
   };
 
-  document.getElementById('manageSubscriptionButton').addEventListener('click', event => {
-    const panel = document.getElementById('subscriptionManagePanel');
-    panel.hidden = !panel.hidden;
-    event.currentTarget.setAttribute('aria-expanded', String(!panel.hidden));
-  });
-  document.getElementById('cancelSubscriptionButton').addEventListener('click', () => {
-    const subject = encodeURIComponent('Demande d’annulation de mon abonnement Alfred-EA');
-    const body = encodeURIComponent('Bonjour,\n\nJe souhaite demander l’annulation de mon abonnement Alfred-EA avant mon prochain renouvellement. Merci de me confirmer la date de fin de mon accès.\n\nNom complet :\nAdresse courriel du compte :\n');
-    location.href = `mailto:alfred.expert.advisor@gmail.com?subject=${subject}&body=${body}`;
-  });
+  const openStripePortal = async event => {
+    const feedback = document.getElementById('subscriptionManageStatus');
+    const button = event.currentTarget;
+    const originalText = button.textContent;
+    button.disabled = true;
+    feedback.textContent = 'Ouverture sécurisée du portail Stripe…';
+    const { data, error } = await sb.functions.invoke('create-portal-session', { body: {} });
+    if (error || !data?.url) {
+      button.disabled = false;
+      button.textContent = originalText;
+      feedback.textContent = data?.error || 'Impossible d’ouvrir le portail Stripe pour le moment.';
+      return;
+    }
+    location.href = data.url;
+  };
+  document.getElementById('cancelSubscriptionButton').addEventListener('click', openStripePortal);
+  document.getElementById('paymentMethodButton').addEventListener('click', openStripePortal);
 
   async function loadDashboard(user) {
     layout.hidden = true;
@@ -268,7 +288,7 @@
       sb.from('profiles').select('full_name').eq('id', user.id).maybeSingle(),
       sb.from('memberships').select('plan_name,status,renews_on').eq('user_id', user.id).maybeSingle(),
       sb.from('messages').select('body,created_at,sender_id,attachment_path,attachment_name,attachment_mime').eq('client_id', user.id).order('created_at', { ascending: true }),
-      sb.from('invoices').select('invoice_number,description,amount_cents,currency,status,issued_on,file_path').eq('client_id', user.id).order('issued_on', { ascending: false }),
+      sb.from('invoices').select('invoice_number,description,amount_cents,currency,status,issued_on,file_path,stripe_hosted_url,stripe_pdf_url').eq('client_id', user.id).order('issued_on', { ascending: false }),
       sb.from('documents').select('id,display_name,category,storage_path,created_at').eq('client_id', user.id).order('created_at', { ascending: false }),
       sb.from('mt5_accounts').select('slot,broker,server_name,account_number').eq('user_id', user.id).order('slot')
     ]);
