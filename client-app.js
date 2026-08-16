@@ -36,7 +36,7 @@
     </div>
     <div class="dashboard-columns">
       <article class="dashboard-panel"><h2>Discussion avec Alfred-EA</h2><p class="chat-note">Vos messages restent dans votre dossier privé et sont visibles par l’équipe administratrice.</p><div class="message-list chat-list" id="messageList"><p>Aucun message.</p></div><form id="messageForm" class="message-form"><textarea id="messageBody" maxlength="5000" placeholder="Écrire un message privé à Alfred-EA"></textarea><label class="message-image-picker">Ajouter une image privée (JPG, PNG ou WebP · 10 Mo max.)<input id="messageImage" type="file" accept="image/jpeg,image/png,image/webp"></label><button class="submit" type="submit">Envoyer le message</button><p id="messageStatus" class="document-upload-status"></p></form></article>
-      <article class="dashboard-panel"><h2>Mes factures</h2><div id="invoiceList"><p>Aucune facture disponible.</p></div><div class="subscription-manage-panel"><p>Gérez votre paiement ou votre abonnement directement dans le portail Stripe sécurisé.</p><button class="subscription-payment" id="paymentMethodButton" type="button">Enregistrer ou modifier mon mode de paiement</button><button class="subscription-cancel" id="cancelSubscriptionButton" type="button">Gérer ou annuler mon abonnement</button><a class="subscription-link" href="subscription.html">Voir les niveaux d’abonnement</a><p id="subscriptionManageStatus">Stripe confirme immédiatement les modifications effectuées.</p></div><h2 class="section-space">Mes documents</h2><div id="documentList"><p>Aucun document disponible.</p></div></article>
+      <article class="dashboard-panel"><h2>Mes factures</h2><div id="invoiceList"><p>Aucune facture disponible.</p></div><div class="subscription-manage-panel"><p>Gérez votre paiement ou votre abonnement directement dans le portail Stripe sécurisé.</p><button class="subscription-payment" id="paymentMethodButton" type="button">Enregistrer ou modifier mon mode de paiement</button><button class="subscription-cancel" id="cancelSubscriptionButton" type="button">Gérer ou annuler mon abonnement</button><a class="subscription-link" id="subscriptionLevelsLink" href="subscription.html" hidden>Choisir un abonnement</a><p id="subscriptionEligibilityMessage">Ajoutez d’abord un compte courtier actif pour choisir un abonnement.</p><p id="subscriptionManageStatus">Stripe confirme immédiatement les modifications effectuées.</p></div><h2 class="section-space">Mes documents</h2><div id="documentList"><p>Aucun document disponible.</p></div></article>
     </div>
     <div class="secure-sections">
       <article class="dashboard-panel"><h2>Mes comptes MT5</h2><p class="security-note">Enregistrez jusqu’à cinq comptes. Le mot de passe est chiffré et chaque consultation exige une nouvelle authentification administrateur.</p><form id="mt5Form" class="secure-form"><div id="mt5Rows"></div><button class="submit" type="submit">Enregistrer et transmettre</button><p class="form-feedback" id="mt5Status" role="status"></p></form></article>
@@ -298,6 +298,9 @@
     document.getElementById('membershipStatus').textContent = membershipResult.data?.status || 'En attente';
     document.getElementById('invoiceCount').textContent = String(invoicesResult.data?.length || 0);
     document.getElementById('documentCount').textContent = String(documentsResult.data?.length || 0);
+    const hasBrokerAccount = (mt5Result.data || []).length > 0;
+    document.getElementById('subscriptionLevelsLink').hidden = !hasBrokerAccount;
+    document.getElementById('subscriptionEligibilityMessage').hidden = hasBrokerAccount;
     const messageList = document.getElementById('messageList');
     messageList.replaceChildren();
     for (const message of (messagesResult.data || [])) {

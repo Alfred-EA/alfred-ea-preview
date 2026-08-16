@@ -28,6 +28,7 @@
     }).catch(() => {});
   }
   const navigation = document.getElementById('mobileNavigation');
+  navigation?.querySelector('a[href="subscription.html"]')?.remove();
   const brokerLink = navigation?.querySelector('a[href="broker-account.html"]');
   if (brokerLink) brokerLink.textContent = 'Ouvrir un compte courtier';
   if (navigation && !navigation.querySelector('a[href="client-space.html"]')) {

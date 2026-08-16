@@ -1,6 +1,7 @@
 (()=>{
   const key='alfred-ea-language';
   const en={
+    'Choisir un abonnement':'Choose a subscription','Ajoutez d\u2019abord un compte courtier actif pour choisir un abonnement.':'Add an active broker account before choosing a subscription.',
     'Payer cette facture':'Pay this invoice','Enregistrer ou modifier mon mode de paiement':'Add or update my payment method','G\u00e9rez votre paiement ou votre abonnement directement dans le portail Stripe s\u00e9curis\u00e9.':'Manage your payment or subscription directly in Stripe\u2019s secure portal.','Stripe confirme imm\u00e9diatement les modifications effectu\u00e9es.':'Stripe confirms your changes immediately.',
     'G\u00e9rer ou annuler mon abonnement':'Manage or cancel my subscription','Modifiez votre paiement ou annulez votre abonnement directement dans le portail Stripe s\u00e9curis\u00e9.':'Update your payment or cancel your subscription directly in Stripe\u2019s secure portal.','Voir les niveaux d\u2019abonnement':'View subscription levels','L\u2019annulation peut \u00eatre faite en quelques \u00e9tapes et Stripe confirme imm\u00e9diatement votre demande.':'Cancellation takes only a few steps, and Stripe confirms your request immediately.',
     'Politique de confidentialité':'Privacy Policy','Conditions et clauses de non-responsabilité':'Terms and disclaimers','J’ai lu et j’accepte la':'I have read and accept the','conditions et clauses de non-responsabilité':'terms and disclaimers',
