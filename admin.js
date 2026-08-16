@@ -20,6 +20,12 @@
   const monthlyIncome = document.getElementById('monthlyIncome');
   const monthlySubscriptions = document.getElementById('monthlySubscriptions');
   const monthlySummaryStatus = document.getElementById('monthlySummaryStatus');
+  const mfaGate = document.getElementById('mfaGate');
+  const mfaSetup = document.getElementById('mfaSetup');
+  const mfaForm = document.getElementById('mfaForm');
+  const mfaCode = document.getElementById('mfaCode');
+  const mfaStatus = document.getElementById('mfaStatus');
+  let mfaFactorId = null;
   let selectedMt5File = null;
 
   const row = (title, subtitle, actions = '') => `<div class="row"><strong>${escapeHtml(title)}</strong><small>${escapeHtml(subtitle || '')}</small>${actions}</div>`;
@@ -40,6 +46,21 @@
     monthlyIncome.textContent = totals.size ? [...totals].map(([currency,cents]) => (cents/100).toLocaleString('fr-CA',{style:'currency',currency})).join(' + ') : '0,00 $';
     monthlySubscriptions.textContent = String(new Set((memberships.data || []).map(item => item.user_id)).size);
     const invoiceCount=(invoices.data || []).length; document.getElementById('monthlyIncomeHelp').textContent = `${invoiceCount} facture${invoiceCount === 1 ? '' : 's'} payée${invoiceCount === 1 ? '' : 's'}`;
+  }
+
+  async function requireAdministratorMfa() {
+    const [{data:aal,error:aalError},{data:factors,error:factorsError}] = await Promise.all([sb.auth.mfa.getAuthenticatorAssuranceLevel(),sb.auth.mfa.listFactors()]);
+    if (aalError || factorsError) { status.textContent='Impossible de vérifier la double authentification.'; return false; }
+    if (aal.currentLevel === 'aal2') return true;
+    const verified = (factors.totp || []).find(factor => factor.status === 'verified');
+    mfaGate.hidden=false; status.hidden=true; mfaForm.hidden=false;
+    if (verified) {
+      mfaFactorId=verified.id; document.getElementById('mfaTitle').textContent='Code d’authentification requis'; document.getElementById('mfaHelp').textContent='Entrez le code actuel de votre application d’authentification pour ouvrir Administration.';
+      return false;
+    }
+    mfaForm.hidden=true; document.getElementById('mfaHelp').textContent='La double authentification est obligatoire. Configurez Google Authenticator, Microsoft Authenticator, Authy ou une application compatible TOTP.';
+    mfaSetup.innerHTML='<button class="button" id="startMfaEnrollment" type="button">Configurer mon application d’authentification</button>';
+    return false;
   }
 
   function selectMt5File(file) {
@@ -84,15 +105,15 @@
     const path = `${crypto.randomUUID()}.${extension}`;
     const {error: uploadError} = await sb.storage.from('mt5-results').upload(path, selectedMt5File, {contentType:selectedMt5File.type, upsert:false});
     if (uploadError) { mt5Status.textContent = 'La capture n’a pas pu être téléversée.'; submit.disabled = false; return; }
-    const record = {title:document.getElementById('mt5Title').value.trim(),description:document.getElementById('mt5Description').value.trim() || null,result_date:document.getElementById('mt5Date').value,image_path:path,is_published:document.getElementById('mt5Published').checked};
-    const {error} = await sb.from('mt5_results').insert(record);
+    const record = {title:document.getElementById('mt5Title').value.trim(),description:document.getElementById('mt5Description').value.trim() || '',result_date:document.getElementById('mt5Date').value,image_path:path,is_published:document.getElementById('mt5Published').checked};
+    const {error} = await sb.rpc('admin_create_mt5_result',{p_title:record.title,p_description:record.description,p_result_date:record.result_date,p_image_path:path,p_is_published:record.is_published,p_pin:publishPin});
     if (error) { await sb.storage.from('mt5-results').remove([path]); mt5Status.textContent = 'La publication n’a pas pu être enregistrée.'; submit.disabled = false; return; }
     mt5Form.reset(); document.getElementById('mt5Date').valueAsDate = new Date(); selectedMt5File = null; mt5Preview.hidden = true; mt5Preview.removeAttribute('src'); mt5DropZone.classList.remove('has-image'); submit.disabled = false; mt5Status.textContent = record.is_published ? 'Capture publiée sur la page Résultats MT5.' : 'Capture enregistrée comme masquée.'; await loadMt5Results();
   });
   mt5List.addEventListener('click', async event => {
     const article = event.target.closest('.result-admin-row'); if (!article) return;
-    if (event.target.closest('.toggle-result')) { const next = event.target.dataset.published !== 'true'; if(next){const pin=prompt('Entrez votre PIN administrateur à 4 chiffres pour publier cette capture :');if(!pin)return;const {error:pinError}=await sb.rpc('verify_admin_pin',{p_pin:pin});if(pinError){alert('PIN incorrect, verrouillé ou non configuré.');return;}} const {error} = await sb.from('mt5_results').update({is_published:next}).eq('id', article.dataset.id); if (!error) await loadMt5Results(); }
-    if (event.target.closest('.delete-result')) { if (!confirm('Supprimer définitivement cette capture?')) return; const {error} = await sb.from('mt5_results').delete().eq('id', article.dataset.id); if (!error) { await sb.storage.from('mt5-results').remove([article.dataset.path]); await loadMt5Results(); } }
+    if (event.target.closest('.toggle-result')) { const next = event.target.dataset.published !== 'true'; const pin=prompt(`Entrez votre PIN administrateur à 4 chiffres pour ${next ? 'publier' : 'masquer'} cette capture :`); if(!pin)return; const {error}=await sb.rpc('admin_set_mt5_result_visibility',{p_result_id:article.dataset.id,p_is_published:next,p_pin:pin}); if(error){alert('Action refusée : PIN incorrect ou session MFA requise.');return;} await loadMt5Results(); }
+    if (event.target.closest('.delete-result')) { if (!confirm('Supprimer définitivement cette capture?')) return; const pin=prompt('Entrez votre PIN administrateur à 4 chiffres pour supprimer cette capture :'); if(!pin)return; const {data:path,error}=await sb.rpc('admin_delete_mt5_result',{p_result_id:article.dataset.id,p_pin:pin}); if(error){alert('Suppression refusée : PIN incorrect ou session MFA requise.');return;} await sb.storage.from('mt5-results').remove([path]); await loadMt5Results(); }
   });
 
   function loadDemoClient() {
@@ -171,6 +192,7 @@
     if (!session) { location.href = 'client-space.html'; return; }
     const {data:admin} = await sb.from('admin_users').select('user_id').eq('user_id', session.user.id).maybeSingle();
     if (!admin) { status.textContent = 'Accès refusé. Ce compte n’est pas administrateur.'; return; }
+    if (!await requireAdministratorMfa()) return;
     const [{data:profiles, error},{data:memberships, error:membershipError}] = await Promise.all([
       sb.from('profiles').select('id,full_name,created_at').order('created_at', {ascending:false}),
       sb.from('memberships').select('user_id,plan_name,status,starts_on,renews_on,updated_at')
@@ -322,6 +344,24 @@
       : `<button class="button reveal" data-id="${gate.dataset.id}">Accéder avec mon PIN administrateur</button>`;
   });
   adminPinForm.addEventListener('submit',async event=>{event.preventDefault();const currentInput=document.getElementById('adminCurrentPinInput');const input=document.getElementById('adminPinInput');const currentPin=currentInput.value.trim();const pin=input.value.trim();if(!/^\d{4}$/.test(pin)||(!document.getElementById('currentPinField').hidden&&!/^\d{4}$/.test(currentPin))){adminPinStatus.textContent='Chaque PIN doit contenir exactement 4 chiffres.';return;}const button=adminPinForm.querySelector('button');button.disabled=true;adminPinStatus.textContent='Vérification et enregistrement…';const {error}=await sb.rpc('set_admin_pin',{p_current_pin:currentPin||null,p_new_pin:pin});button.disabled=false;if(error){adminPinStatus.textContent='PIN actuel incorrect, verrouillé ou nouveau PIN invalide.';return;}currentInput.value='';input.value='';document.getElementById('currentPinField').hidden=false;currentInput.required=true;adminPinStatus.textContent='Nouveau PIN administrateur enregistré.';document.getElementById('adminPinHelp').textContent='Entrez votre PIN actuel avant de choisir un nouveau PIN.';});
+  mfaGate.addEventListener('click',async event=>{
+    const start=event.target.closest('#startMfaEnrollment'); if(!start)return;
+    start.disabled=true; mfaSetup.insertAdjacentHTML('beforeend','<p class="status">Création sécurisée du facteur…</p>');
+    const {data,error}=await sb.auth.mfa.enroll({factorType:'totp',friendlyName:'Administration Alfred-EA'});
+    if(error){mfaSetup.innerHTML='<p class="status">Impossible de commencer la configuration. Déconnectez-vous, reconnectez-vous et réessayez.</p>';return;}
+    mfaFactorId=data.id; mfaSetup.replaceChildren();
+    const image=document.createElement('img'); image.className='mfa-qr'; image.alt='Code QR pour l’application d’authentification'; image.src=data.totp.qr_code;
+    const instruction=document.createElement('p'); instruction.className='muted'; instruction.textContent='Scannez ce code QR, puis entrez le code à 6 chiffres affiché par votre application.';
+    const secret=document.createElement('code'); secret.className='mfa-secret'; secret.textContent=`Clé manuelle : ${data.totp.secret}`;
+    mfaSetup.append(image,instruction,secret); mfaForm.hidden=false; mfaCode.focus();
+  });
+  mfaForm.addEventListener('submit',async event=>{
+    event.preventDefault(); const code=mfaCode.value.trim(); if(!/^\d{6}$/.test(code)||!mfaFactorId){mfaStatus.textContent='Entrez le code actuel de 6 chiffres.';return;}
+    const button=mfaForm.querySelector('button'); button.disabled=true; mfaStatus.textContent='Vérification de la double authentification…';
+    const {error}=await sb.auth.mfa.challengeAndVerify({factorId:mfaFactorId,code});
+    if(error){mfaStatus.textContent='Code incorrect ou expiré. Attendez le prochain code et réessayez.';button.disabled=false;return;}
+    mfaStatus.textContent='Double authentification confirmée. Ouverture…'; location.reload();
+  });
   document.getElementById('logout').addEventListener('click',async()=>{await sb.auth.signOut();location.href='client-space.html';});
   summaryMonth.addEventListener('change',()=>loadMonthlySummary(summaryMonth.value));
   init();
