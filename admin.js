@@ -347,8 +347,15 @@
   mfaGate.addEventListener('click',async event=>{
     const start=event.target.closest('#startMfaEnrollment'); if(!start)return;
     start.disabled=true; mfaSetup.insertAdjacentHTML('beforeend','<p class="status">Création sécurisée du facteur…</p>');
-    const {data,error}=await sb.auth.mfa.enroll({factorType:'totp',friendlyName:'Administration Alfred-EA'});
-    if(error){mfaSetup.innerHTML='<p class="status">Impossible de commencer la configuration. Déconnectez-vous, reconnectez-vous et réessayez.</p>';return;}
+    let enrollment=await sb.auth.mfa.enroll({factorType:'totp',friendlyName:'Administration Alfred-EA'});
+    if(enrollment.error){
+      const factors=await sb.auth.mfa.listFactors();
+      const incomplete=(factors.data?.all || []).filter(factor=>factor.factor_type==='totp' && factor.status==='unverified');
+      for(const factor of incomplete) await sb.auth.mfa.unenroll({factorId:factor.id});
+      if(incomplete.length) enrollment=await sb.auth.mfa.enroll({factorType:'totp',friendlyName:'Administration Alfred-EA'});
+    }
+    const {data,error}=enrollment;
+    if(error){mfaSetup.innerHTML='<p class="status">La configuration MFA est indisponible. Vérifiez que TOTP est activé dans Supabase Auth, puis réessayez.</p>';return;}
     mfaFactorId=data.id; mfaSetup.replaceChildren();
     const image=document.createElement('img'); image.className='mfa-qr'; image.alt='Code QR pour l’application d’authentification'; image.src=data.totp.qr_code;
     const instruction=document.createElement('p'); instruction.className='muted'; instruction.textContent='Scannez ce code QR, puis entrez le code à 6 chiffres affiché par votre application.';
