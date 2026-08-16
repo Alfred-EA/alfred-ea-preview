@@ -192,7 +192,6 @@
     if (!session) { location.href = 'client-space.html'; return; }
     const {data:admin} = await sb.from('admin_users').select('user_id').eq('user_id', session.user.id).maybeSingle();
     if (!admin) { status.textContent = 'Accès refusé. Ce compte n’est pas administrateur.'; return; }
-    if (!await requireAdministratorMfa()) return;
     const [{data:profiles, error},{data:memberships, error:membershipError}] = await Promise.all([
       sb.from('profiles').select('id,full_name,created_at').order('created_at', {ascending:false}),
       sb.from('memberships').select('user_id,plan_name,status,starts_on,renews_on,updated_at')
