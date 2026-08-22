@@ -20,6 +20,9 @@
   const monthlyIncome = document.getElementById('monthlyIncome');
   const monthlySubscriptions = document.getElementById('monthlySubscriptions');
   const monthlySummaryStatus = document.getElementById('monthlySummaryStatus');
+  const systemHealth = document.getElementById('systemHealth');
+  const systemHealthCards = document.getElementById('systemHealthCards');
+  const systemHealthStatus = document.getElementById('systemHealthStatus');
   const mfaGate = document.getElementById('mfaGate');
   const mfaSetup = document.getElementById('mfaSetup');
   const mfaForm = document.getElementById('mfaForm');
@@ -27,6 +30,12 @@
   const mfaStatus = document.getElementById('mfaStatus');
   let mfaFactorId = null;
   let selectedMt5File = null;
+
+  async function reauthenticateAdministrator(password) {
+    const {data:{user},error:userError}=await sb.auth.getUser();
+    if(userError||!user?.email) return {error:userError||new Error('Administrator session unavailable')};
+    return sb.auth.signInWithPassword({email:user.email,password});
+  }
 
   const row = (title, subtitle, actions = '') => `<div class="row"><strong>${escapeHtml(title)}</strong><small>${escapeHtml(subtitle || '')}</small>${actions}</div>`;
   const escapeHtml = value => String(value || '').replace(/[&<>'"]/g, character => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[character]));
@@ -46,6 +55,15 @@
     monthlyIncome.textContent = totals.size ? [...totals].map(([currency,cents]) => (cents/100).toLocaleString('fr-CA',{style:'currency',currency})).join(' + ') : '0,00 $';
     monthlySubscriptions.textContent = String(new Set((memberships.data || []).map(item => item.user_id)).size);
     const invoiceCount=(invoices.data || []).length; document.getElementById('monthlyIncomeHelp').textContent = `${invoiceCount} facture${invoiceCount === 1 ? '' : 's'} payée${invoiceCount === 1 ? '' : 's'}`;
+  }
+
+  async function loadSystemHealth() {
+    systemHealthStatus.textContent = 'Vérification…';
+    const {data,error} = await sb.rpc('admin_system_health');
+    if (error) { systemHealthCards.innerHTML='<p class="muted">Rapport indisponible.</p>'; systemHealthStatus.textContent='Vérifiez la migration de surveillance dans Supabase.'; return; }
+    const labels={webhook_errors_24h:'Erreurs Stripe · 24 h',webhooks_unprocessed_15m:'Webhooks non traités',failed_invoices:'Factures en retard',audit_events_24h:'Actions admin · 24 h'};
+    systemHealthCards.innerHTML=(data||[]).map(item=>`<article class="summary-card"><span>${escapeHtml(labels[item.metric]||item.metric)}</span><strong style="color:${item.status==='attention'?'#ff9f9f':'var(--gold2)'}">${escapeHtml(item.value)}</strong><small>${item.status==='attention'?'Attention requise':item.status==='ok'?'Fonctionnement normal':'Information'}</small></article>`).join('');
+    systemHealthStatus.textContent=(data||[]).some(item=>item.status==='attention')?'Une anomalie nécessite une vérification.':'Aucune anomalie détectée.';
   }
 
   async function requireAdministratorMfa() {
@@ -144,7 +162,7 @@
     const [accounts, documents, credentials, membership, latestInvoice, messages] = await Promise.all([
       sb.from('mt5_accounts').select('slot,broker,server_name,account_number').eq('user_id', client.id).order('slot'),
       sb.from('documents').select('id,display_name,category,storage_path').eq('client_id', client.id).order('created_at', {ascending:false}),
-      sb.from('mt5_credentials').select('id,slot,expires_at,created_at').eq('user_id', client.id).order('slot'),
+      sb.rpc('admin_list_mt5_credentials',{p_user_id:client.id}),
       sb.from('memberships').select('plan_name,status,starts_on,renews_on,updated_at').eq('user_id', client.id).maybeSingle(),
       sb.from('invoices').select('amount_cents,currency,issued_on,status').eq('client_id', client.id).order('issued_on', {ascending:false}).limit(1).maybeSingle(),
       sb.from('messages').select('body,created_at,sender_id,attachment_path,attachment_name,attachment_mime').eq('client_id', client.id).order('created_at', {ascending:true})
@@ -170,7 +188,7 @@
     let html = `<p class="muted">Dossier ${escapeHtml(client.id)}</p>${management}<div class="section"><h2>Abonnement</h2>${row(`${membership.data?.plan_name || 'À confirmer'} · ${membership.data?.status || 'En attente'}`, `Membre depuis le ${memberSinceText}`, approvalAction)}${row(invoiceAmount, `Dernière facturation : ${billingDate}`)}${row('Prochain renouvellement', renewalDate)}</div><div class="section"><h2>Comptes MT5</h2>`;
     html += (accounts.data || []).map(account => {
       const credential = (credentials.data || []).find(item => item.slot === account.slot);
-      const action = credential ? `<div class="actions"><button class="button reveal" data-id="${credential.id}">Accéder avec mon PIN administrateur</button></div>` : '<small>Aucun mot de passe disponible</small>';
+      const action = credential ? `<div class="actions"><button class="button reveal" data-id="${credential.id}">Réauthentifier et afficher</button></div>` : '<small>Aucun mot de passe disponible</small>';
       return row(`Compte ${account.slot} — ${account.broker}`, `${account.account_number} · ${account.server_name || 'Serveur non indiqué'}`, action);
     }).join('') || '<p class="muted">Aucun compte enregistré.</p>';
     html += '</div><div class="section"><h2>Documents privés</h2>';
@@ -199,8 +217,8 @@
     if (error) { status.textContent = 'Impossible de charger les dossiers.'; return; }
     if (membershipError) { status.textContent = 'Impossible de charger les abonnements.'; return; }
     const {data:hasPin} = await sb.rpc('has_admin_pin');
-    status.hidden = true; monthlySummary.hidden = false; grid.hidden = false; mt5Publisher.hidden = false; adminPinPanel.hidden = false; clients.replaceChildren();
-    const today = new Date(); summaryMonth.value = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}`; loadMonthlySummary(summaryMonth.value);
+    status.hidden = true; monthlySummary.hidden = false; systemHealth.hidden = false; grid.hidden = false; mt5Publisher.hidden = false; adminPinPanel.hidden = false; clients.replaceChildren();
+    const today = new Date(); summaryMonth.value = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}`; loadMonthlySummary(summaryMonth.value); loadSystemHealth();
     document.getElementById('adminPinHelp').textContent = hasPin ? 'Entrez votre PIN actuel avant de choisir un nouveau PIN.' : 'Créez votre PIN de 4 chiffres avant d’approuver un membre ou d’afficher un mot de passe MT5.';
     document.getElementById('currentPinField').hidden = !hasPin;
     document.getElementById('adminCurrentPinInput').required = Boolean(hasPin);
@@ -240,12 +258,12 @@
     }
     const demoReveal = event.target.closest('.demo-reveal');
     if (demoReveal) {
-      demoReveal.closest('.actions').innerHTML='<form class="credential-gate" data-demo="true"><label>PIN administrateur à 4 chiffres</label><input type="password" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" autocomplete="one-time-code" required><button class="button" type="submit">Vérifier et afficher le mot de passe démo</button><p class="muted gate-status"></p></form>'; return;
+      demoReveal.closest('.actions').innerHTML='<form class="credential-gate" data-demo="true"><label>Mot de passe actuel du compte administrateur</label><input type="password" minlength="8" maxlength="256" autocomplete="current-password" required><button class="button" type="submit">Réauthentifier et afficher le mot de passe démo</button><p class="muted gate-status"></p></form>'; return;
     }
     const reveal = event.target.closest('.reveal');
     if (reveal) {
       const actions=reveal.closest('.actions');
-      actions.innerHTML=`<form class="credential-gate" data-id="${reveal.dataset.id}"><label>PIN administrateur à 4 chiffres</label><input type="password" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" autocomplete="one-time-code" required><button class="button" type="submit">Vérifier et afficher pour ce compte</button><p class="muted gate-status"></p></form>`;
+      actions.innerHTML=`<form class="credential-gate" data-id="${reveal.dataset.id}"><label>Mot de passe actuel du compte administrateur</label><input type="password" minlength="8" maxlength="256" autocomplete="current-password" required><button class="button" type="submit">Réauthentifier et afficher</button><p class="muted gate-status">Une nouvelle authentification Supabase est exigée. Le mot de passe n’est jamais envoyé à la base de données.</p></form>`;
     }
     const openLicense = event.target.closest('.open-license');
     if (openLicense) {
@@ -317,17 +335,21 @@
     const gate=event.target.closest('.credential-gate');
     if(!gate) return;
     event.preventDefault();
-    const submit=gate.querySelector('button'); const feedback=gate.querySelector('.gate-status'); const pin=gate.querySelector('input').value;
-    submit.disabled=true; feedback.textContent='Vérification…';
+    const submit=gate.querySelector('button'); const feedback=gate.querySelector('.gate-status'); const password=gate.querySelector('input').value;
+    submit.disabled=true; feedback.textContent='Réauthentification sécurisée…';
     if(gate.dataset.demo==='true'){
-      const {error}=await sb.rpc('verify_admin_pin',{p_pin:pin});
-      if(error){feedback.textContent='PIN incorrect, verrouillé ou non configuré.';submit.disabled=false;return;}
-      gate.innerHTML='<div class="account-secret"><strong>Compte 1 · Mot de passe MT5</strong><input type="text" value="DEMO-ONLY-NOT-A-REAL-PASSWORD" readonly><button class="button copy-account-secret" type="button">Copier</button><button class="button hide-account-secret" type="button">Masquer le mot de passe</button><small>Démonstration seulement · le PIN sera requis pour l’afficher de nouveau</small></div>';
+      const {error}=await reauthenticateAdministrator(password);
+      gate.querySelector('input').value='';
+      if(error){feedback.textContent='Le mot de passe administrateur est incorrect ou la session a expiré.';submit.disabled=false;return;}
+      gate.innerHTML='<div class="account-secret"><strong>Compte 1 · Mot de passe MT5</strong><input type="text" value="DEMO-ONLY-NOT-A-REAL-PASSWORD" readonly><button class="button copy-account-secret" type="button">Copier</button><button class="button hide-account-secret" type="button">Masquer le mot de passe</button><small>Démonstration seulement · une nouvelle authentification sera requise</small></div>';
       return;
     }
-    const {data,error}=await sb.rpc('reveal_mt5_credential',{p_credential_id:gate.dataset.id,p_pin:pin});
-    if(error){feedback.textContent='PIN incorrect, verrouillé, ou mot de passe MT5 indisponible.';submit.disabled=false;return;}
-    gate.innerHTML=`<div class="account-secret"><strong>Mot de passe MT5 de ce compte</strong><input type="text" value="${escapeHtml(data)}" readonly><button class="button copy-account-secret" type="button">Copier</button><button class="button hide-account-secret" type="button">Masquer le mot de passe</button><small>Consultation journalisée · le PIN sera requis pour l’afficher de nouveau</small></div>`;
+    const {error:authError}=await reauthenticateAdministrator(password);
+    gate.querySelector('input').value='';
+    if(authError){feedback.textContent='Le mot de passe administrateur est incorrect ou la session a expiré.';submit.disabled=false;return;}
+    const {data,error}=await sb.rpc('reveal_mt5_credential',{p_credential_id:gate.dataset.id});
+    if(error){feedback.textContent='Accès refusé : authentification récente requise ou mot de passe MT5 indisponible.';submit.disabled=false;return;}
+    gate.innerHTML=`<div class="account-secret"><strong>Mot de passe MT5 de ce compte</strong><input type="text" value="${escapeHtml(data)}" readonly><button class="button copy-account-secret" type="button">Copier</button><button class="button hide-account-secret" type="button">Masquer le mot de passe</button><small>Consultation journalisée · une nouvelle authentification sera requise après masquage</small></div>`;
   });
   details.addEventListener('click',event=>{
     const cancelApproval=event.target.closest('.cancel-member-approval');
@@ -340,7 +362,7 @@
     const actions=gate.closest('.actions');
     actions.innerHTML=gate.dataset.demo==='true'
       ? '<button class="button demo-reveal">Simuler l’accès administrateur</button>'
-      : `<button class="button reveal" data-id="${gate.dataset.id}">Accéder avec mon PIN administrateur</button>`;
+      : `<button class="button reveal" data-id="${gate.dataset.id}">Réauthentifier et afficher</button>`;
   });
   adminPinForm.addEventListener('submit',async event=>{event.preventDefault();const currentInput=document.getElementById('adminCurrentPinInput');const input=document.getElementById('adminPinInput');const currentPin=currentInput.value.trim();const pin=input.value.trim();if(!/^\d{4}$/.test(pin)||(!document.getElementById('currentPinField').hidden&&!/^\d{4}$/.test(currentPin))){adminPinStatus.textContent='Chaque PIN doit contenir exactement 4 chiffres.';return;}const button=adminPinForm.querySelector('button');button.disabled=true;adminPinStatus.textContent='Vérification et enregistrement…';const {error}=await sb.rpc('set_admin_pin',{p_current_pin:currentPin||null,p_new_pin:pin});button.disabled=false;if(error){adminPinStatus.textContent='PIN actuel incorrect, verrouillé ou nouveau PIN invalide.';return;}currentInput.value='';input.value='';document.getElementById('currentPinField').hidden=false;currentInput.required=true;adminPinStatus.textContent='Nouveau PIN administrateur enregistré.';document.getElementById('adminPinHelp').textContent='Entrez votre PIN actuel avant de choisir un nouveau PIN.';});
   mfaGate.addEventListener('click',async event=>{
@@ -370,5 +392,6 @@
   });
   document.getElementById('logout').addEventListener('click',async()=>{await sb.auth.signOut();location.href='client-space.html';});
   summaryMonth.addEventListener('change',()=>loadMonthlySummary(summaryMonth.value));
+  document.getElementById('refreshSystemHealth').addEventListener('click',loadSystemHealth);
   init();
 })();
