@@ -231,7 +231,7 @@
       {key:'unpaid',title:'Non payés',items:[]},
       {key:'inactive',title:'Inactifs',items:[]}
     ];
-    profiles.forEach(profile => {
+    profiles.filter(profile => profile.id !== session.user.id).forEach(profile => {
       const membership = membershipsByUser.get(profile.id);
       const statusKey = membership?.status === 'active' ? 'active' : membership?.status === 'paused' ? 'unpaid' : ['cancelled','expired'].includes(membership?.status) ? 'inactive' : 'new';
       groups.find(group => group.key === statusKey).items.push({profile,membership});
