@@ -268,42 +268,17 @@
         document.getElementById("fxMonth").textContent = showPercent(account.monthlyBankedGrowth);
         document.getElementById("fxTotal").textContent = showPercent(account.totalBankedGrowth);
       }
-      function parseCsv(text) {
-        const rows = []; let row = [], field = "", quoted = false;
-        for (let i = 0; i < text.length; i++) {
-          const char = text[i];
-          if (quoted) {
-            if (char === '"' && text[i + 1] === '"') { field += '"'; i++; }
-            else if (char === '"') quoted = false;
-            else field += char;
-          } else if (char === '"') quoted = true;
-          else if (char === ',') { row.push(field); field = ""; }
-          else if (char === '\n') { row.push(field.replace(/\r$/, "")); rows.push(row); row = []; field = ""; }
-          else field += char;
-        }
-        if (field || row.length) { row.push(field); rows.push(row); }
-        return rows;
-      }
-      function fxDate(value) {
-        const match = String(value || "").match(/^(\d{4})\/(\d{2})\/(\d{2})\s+(\d{2}):(\d{2}):(\d{2})$/);
-        return match ? new Date(+match[1], +match[2] - 1, +match[3], +match[4], +match[5], +match[6]) : null;
-      }
+      const fxWeekEndpoint = "https://lstjmanxzpsnuxonspfc.supabase.co/functions/v1/fxblue-current-week";
+      const fxWeekPublishableKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxzdGptYW54enBzbnV4b25zcGZjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU2NzAxNjMsImV4cCI6MjEwMTI0NjE2M30.BVjCyTVWsODT6cpRKCSak5PI5a_4uhxifHP5z_ScqO8";
       async function refreshCurrentWeek() {
         try {
-          const response = await fetch(`https://api.fxblue.com/users/CQIPKZ/csv?t=${Date.now()}`, {cache:"no-store"});
-          if (!response.ok) throw new Error("FX Blue CSV unavailable");
-          const rows = parseCsv(await response.text()).filter(row => row.length > 2 && row[0] !== "sep=");
-          const headers = rows.shift();
-          const typeIndex = headers.indexOf("Type"), timeIndex = headers.indexOf("Close time"), netIndex = headers.indexOf("Net profit");
-          const now = new Date(), weekStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-          weekStart.setDate(weekStart.getDate() - ((weekStart.getDay() + 6) % 7));
-          const records = rows.map(row => ({type:row[typeIndex], time:fxDate(row[timeIndex]), net:Number(row[netIndex]) || 0})).filter(row => row.time).sort((a,b) => a.time - b.time);
-          let openingBalance = 0, weeklyProfit = 0;
-          records.forEach(record => {
-            if (record.time < weekStart) openingBalance += record.net;
-            else if (record.type === "Closed position") weeklyProfit += record.net;
+          const response = await fetch(`${fxWeekEndpoint}?t=${Date.now()}`, {
+            cache:"no-store",
+            headers:{Authorization:`Bearer ${fxWeekPublishableKey}`,apikey:fxWeekPublishableKey}
           });
-          document.getElementById("fxCurrentWeek").textContent = openingBalance > 0 ? showPercent((weeklyProfit / openingBalance) * 100) : "--";
+          if (!response.ok) throw new Error("FX Blue weekly data unavailable");
+          const data = await response.json();
+          document.getElementById("fxCurrentWeek").textContent = showPercent(data.currentWeekGrowth);
         } catch (error) {
           document.getElementById("fxCurrentWeek").textContent = "--";
         }
