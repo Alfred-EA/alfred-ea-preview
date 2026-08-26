@@ -28,7 +28,6 @@
     }).catch(() => {});
   }
   const navigation = document.getElementById('mobileNavigation');
-  navigation?.querySelector('a[href="subscription.html"]')?.remove();
   const brokerLink = navigation?.querySelector('a[href="broker-account.html"]');
   if (brokerLink) brokerLink.textContent = 'Ouvrir un compte courtier';
   if (navigation && !navigation.querySelector('a[href="client-space.html"]')) {
@@ -40,6 +39,7 @@
   const footer = document.querySelector('footer .wrap, footer');
   if (footer) {
     if (!footer.querySelector('a[href="privacy.html"]')) footer.insertAdjacentHTML('beforeend', ' · <a href="privacy.html">Politique de confidentialité</a>');
+    if (!footer.querySelector('a[href="cancellation-refund.html"]')) footer.insertAdjacentHTML('beforeend', ' · <a href="cancellation-refund.html">Annulation et remboursements</a>');
     if (!footer.querySelector('a[href="disclaimer.html"]')) footer.insertAdjacentHTML('beforeend', ' · <a href="disclaimer.html">Conditions et clauses de non-responsabilité</a>');
   }
 })();
