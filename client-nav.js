@@ -28,6 +28,13 @@
     }).catch(() => {});
   }
   const navigation = document.getElementById('mobileNavigation');
+  if (navigation && !navigation.querySelector('a[href="subscription.html"]')) {
+    const subscriptionLink = document.createElement('a');
+    subscriptionLink.href = 'subscription.html';
+    subscriptionLink.textContent = 'Abonnement';
+    const accountLink = navigation.querySelector('a[href="broker-account.html"]');
+    navigation.insertBefore(subscriptionLink, accountLink || null);
+  }
   const brokerLink = navigation?.querySelector('a[href="broker-account.html"]');
   if (brokerLink) brokerLink.textContent = 'Ouvrir un compte courtier';
   if (navigation && !navigation.querySelector('a[href="client-space.html"]')) {
