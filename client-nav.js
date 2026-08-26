@@ -14,6 +14,9 @@
       .site-brand,body>header .brand{max-width:calc(100% - 58px)!important;margin:0!important;font-size:16px!important;letter-spacing:.055em!important;white-space:nowrap!important}
       .site-brand img,body>header .brand img{width:42px!important;height:37px!important}
     }
+    .global-current-week{display:flex;align-items:center;justify-content:center;gap:10px;min-height:42px;padding:8px 16px;border-bottom:1px solid rgba(219,180,83,.22);background:linear-gradient(90deg,#05080d,rgba(219,180,83,.08),#05080d);color:#969590;font-size:11px;letter-spacing:.06em;text-align:center}
+    .global-current-week strong{color:#f2d47d;font-size:16px;letter-spacing:0}
+    .global-current-week .live{padding:3px 7px;border:1px solid rgba(219,180,83,.45);border-radius:999px;color:#dbb453;font-size:8px;font-weight:800;letter-spacing:.12em}
   `;
   document.head.appendChild(style);
   const brand = document.querySelector('.site-brand, body>header .brand');
@@ -42,6 +45,29 @@
     link.href = 'client-space.html';
     link.textContent = 'Espace client';
     navigation.appendChild(link);
+  }
+  if (!document.getElementById('fxCurrentWeek') && !document.querySelector('.global-current-week')) {
+    const header = document.querySelector('.site-header, body > header');
+    if (header) {
+      const weekBar = document.createElement('div');
+      weekBar.className = 'global-current-week';
+      weekBar.innerHTML = '<span>Semaine en cours</span><strong>--</strong><span class="live">LIVE</span>';
+      header.insertAdjacentElement('afterend', weekBar);
+      const value = weekBar.querySelector('strong');
+      const endpoint = 'https://lstjmanxzpsnuxonspfc.supabase.co/functions/v1/fxblue-current-week';
+      const publishableKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxzdGptYW54enBzbnV4b25zcGZjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU2NzAxNjMsImV4cCI6MjEwMTI0NjE2M30.BVjCyTVWsODT6cpRKCSak5PI5a_4uhxifHP5z_ScqO8';
+      const refreshWeek = async () => {
+        try {
+          const response = await fetch(`${endpoint}?t=${Date.now()}`, {cache:'no-store', headers:{Authorization:`Bearer ${publishableKey}`, apikey:publishableKey}});
+          if (!response.ok) throw new Error('Weekly performance unavailable');
+          const data = await response.json();
+          const number = Number(data.currentWeekGrowth);
+          value.textContent = Number.isFinite(number) ? `${number >= 0 ? '+' : ''}${number.toFixed(2)}%` : '--';
+        } catch (_) { value.textContent = '--'; }
+      };
+      refreshWeek();
+      setInterval(refreshWeek, 60000);
+    }
   }
   const footer = document.querySelector('footer .wrap, footer');
   if (footer) {
