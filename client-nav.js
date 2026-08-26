@@ -13,6 +13,13 @@
     @media (max-width:820px){
       .site-brand,body>header .brand{max-width:calc(100% - 58px)!important;margin:0!important;font-size:16px!important;letter-spacing:.055em!important;white-space:nowrap!important}
       .site-brand img,body>header .brand img{width:42px!important;height:37px!important}
+      .global-current-week{display:grid!important;grid-template-columns:minmax(0,1fr) auto auto!important;width:100%!important;min-height:46px!important;gap:8px!important;padding:8px 12px!important;font-size:10px!important;text-align:left!important}
+      .global-current-week strong{font-size:15px!important;text-align:right!important;white-space:nowrap!important}
+      .global-current-week .live{justify-self:end!important;white-space:nowrap!important}
+      .top-performance .stats{grid-template-columns:repeat(3,minmax(0,1fr))!important}
+      .top-performance .stat:first-child{grid-column:1/-1!important;padding:10px 4px 13px!important;border-left:0!important;border-bottom:1px solid var(--line)!important}
+      .top-performance .stat:nth-child(2){border-left:0!important}
+      .top-performance .stat:nth-child(3),.top-performance .stat:nth-child(4){border-top:0!important}
     }
     .global-current-week{display:flex;align-items:center;justify-content:center;gap:10px;min-height:42px;padding:8px 16px;border-bottom:1px solid rgba(219,180,83,.22);background:linear-gradient(90deg,#05080d,rgba(219,180,83,.08),#05080d);color:#969590;font-size:11px;letter-spacing:.06em;text-align:center}
     .global-current-week strong{color:#f2d47d;font-size:16px;letter-spacing:0}
