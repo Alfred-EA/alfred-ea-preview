@@ -16,6 +16,12 @@
       .global-current-week{display:grid!important;grid-template-columns:minmax(0,1fr) auto!important;width:100%!important;min-height:52px!important;gap:3px 10px!important;padding:8px 14px!important;font-size:10px!important;text-align:left!important}
       .global-current-week strong{font-size:15px!important;text-align:right!important;white-space:nowrap!important}
       .global-current-week .live{grid-column:1/-1!important;justify-self:start!important;white-space:nowrap!important}
+      .live-strip{grid-template-columns:repeat(3,minmax(0,1fr))!important;width:100%!important;overflow:visible!important;padding:12px 8px!important}
+      .live-strip .live-title{grid-column:1/-1!important;padding:0 0 10px!important;text-align:center!important}
+      .live-strip .live-stat{min-width:0!important;padding:0 5px!important;text-align:center!important;overflow:visible!important}
+      .live-strip .live-stat:nth-child(2){border-left:0!important}
+      .live-strip .live-stat span{font-size:7px!important;line-height:1.25!important;white-space:normal!important}
+      .live-strip .live-stat strong{display:block!important;width:100%!important;margin-top:4px!important;font-size:clamp(12px,3.6vw,16px)!important;line-height:1.2!important;letter-spacing:-.02em!important;white-space:nowrap!important;overflow:visible!important}
       .top-performance .stats{grid-template-columns:1fr!important}
       .top-performance .stat{display:grid!important;grid-template-columns:minmax(0,1fr) auto!important;align-items:center!important;gap:8px!important;padding:11px 8px!important;border-left:0!important;text-align:left!important}
       .top-performance .stat+.stat{border-top:1px solid var(--line)!important}
