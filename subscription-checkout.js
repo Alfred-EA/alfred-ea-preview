@@ -6,14 +6,24 @@
   const checkoutStatus = document.getElementById('checkoutStatus');
   const params = new URLSearchParams(location.search);
   let selectedLevel = Number(params.get('level')) || Number(sessionStorage.getItem('alfredCheckoutLevel')) || 3;
+  let hasBrokerAccount = false;
+  let selectedIsCustom = false;
 
   const updateCheckoutLabel = () => {
     const name = document.querySelector('.plan.active .level')?.textContent || '';
     const match = name.match(/(\d+)/);
     if (match) selectedLevel = Number(match[1]);
-    const custom = name.includes('X');
-    checkoutButton.disabled = custom;
-    checkoutButton.textContent = custom ? 'Communiquer avec Alfred-EA' : `Choisir le Niveau ${selectedLevel}`;
+    selectedIsCustom = name.includes('X');
+    checkoutButton.disabled = selectedIsCustom;
+    checkoutButton.textContent = selectedIsCustom ? 'Communiquer avec Alfred-EA' : hasBrokerAccount ? `Choisir le Niveau ${selectedLevel}` : 'Ouvrir un compte courtier';
+  };
+
+  const refreshEligibility = async () => {
+    const { data: { session } } = await sb.auth.getSession();
+    if (!session) { hasBrokerAccount = false; updateCheckoutLabel(); return; }
+    const { data } = await sb.from('mt5_accounts').select('id').eq('user_id', session.user.id).limit(1);
+    hasBrokerAccount = Boolean(data?.length);
+    updateCheckoutLabel();
   };
 
   document.querySelectorAll('.plan').forEach(card => card.addEventListener('click', () => {
@@ -23,6 +33,10 @@
   document.getElementById('accountValue').addEventListener('input', updateCheckoutLabel);
 
   checkoutButton.addEventListener('click', async () => {
+    if (!hasBrokerAccount) {
+      location.href = 'broker-account.html';
+      return;
+    }
     const { data: { session } } = await sb.auth.getSession();
     if (!session) {
       sessionStorage.setItem('alfredCheckoutLevel', String(selectedLevel));
@@ -47,4 +61,5 @@
 
   if (params.get('checkout') === 'cancelled') checkoutStatus.textContent = 'Paiement annulé — aucun montant n’a été prélevé.';
   updateCheckoutLabel();
+  refreshEligibility();
 })();
