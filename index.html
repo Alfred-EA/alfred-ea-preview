@@ -124,9 +124,8 @@
         <article class="performance-card">
           <div class="performance-title">PERFORMANCE ALFRED-EA</div>
           <div class="stats">
-            <div class="stat"><span>Semaine en cours</span><strong id="fxCurrentWeek">--</strong><span class="live-pill">LIVE</span></div>
-            <div class="stat"><span>Moyenne hebdomadaire</span><strong id="fxWeek">--</strong></div>
-            <div class="stat"><span>Moyenne mensuelle</span><strong id="fxMonth">--</strong></div>
+            <div class="stat"><span>Semaine</span><strong id="fxWeek">--</strong></div>
+            <div class="stat"><span>Mois</span><strong id="fxMonth">--</strong></div>
             <div class="stat"><span>Depuis ouverture</span><strong id="fxTotal">--</strong></div>
           </div>
         </article>
@@ -268,21 +267,6 @@
         document.getElementById("fxMonth").textContent = showPercent(account.monthlyBankedGrowth);
         document.getElementById("fxTotal").textContent = showPercent(account.totalBankedGrowth);
       }
-      const fxWeekEndpoint = "https://lstjmanxzpsnuxonspfc.supabase.co/functions/v1/fxblue-current-week";
-      const fxWeekPublishableKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxzdGptYW54enBzbnV4b25zcGZjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU2NzAxNjMsImV4cCI6MjEwMTI0NjE2M30.BVjCyTVWsODT6cpRKCSak5PI5a_4uhxifHP5z_ScqO8";
-      async function refreshCurrentWeek() {
-        try {
-          const response = await fetch(`${fxWeekEndpoint}?t=${Date.now()}`, {
-            cache:"no-store",
-            headers:{Authorization:`Bearer ${fxWeekPublishableKey}`,apikey:fxWeekPublishableKey}
-          });
-          if (!response.ok) throw new Error("FX Blue weekly data unavailable");
-          const data = await response.json();
-          document.getElementById("fxCurrentWeek").textContent = showPercent(data.currentWeekGrowth);
-        } catch (error) {
-          document.getElementById("fxCurrentWeek").textContent = "--";
-        }
-      }
       function refreshFxBlue() {
         document.MTIntelligenceAccounts = [];
         const oldScript = document.getElementById("fxBlueLiveScript");
@@ -294,9 +278,7 @@
         document.head.appendChild(script);
       }
       displayFxBlue();
-      refreshCurrentWeek();
       setInterval(refreshFxBlue, 60000);
-      setInterval(refreshCurrentWeek, 60000);
 
       let demoPrice = 4134.20;
       const demoEntry = 4132.80;
@@ -323,5 +305,5 @@
     })();
   </script>
 <script src="language.js?v=4"></script></body>
-<script src="client-nav.js?v=209"></script>
+<script src="client-nav.js?v=210"></script>
 </html>
