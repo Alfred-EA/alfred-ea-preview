@@ -3,6 +3,8 @@
   const PUBLISHABLE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxzdGptYW54enBzbnV4b25zcGZjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU2NzAxNjMsImV4cCI6MjEwMTI0NjE2M30.BVjCyTVWsODT6cpRKCSak5PI5a_4uhxifHP5z_ScqO8';
   const sb = window.supabase.createClient(PROJECT_URL, PUBLISHABLE_KEY);
   const params = new URLSearchParams(location.search);
+  const referralParam = (params.get('ref') || '').trim().toUpperCase();
+  if (/^ALFRED-[A-Z0-9]{4,16}$/.test(referralParam)) localStorage.setItem('alfred-ea-pending-referral', referralParam);
   const authHash = new URLSearchParams(location.hash.slice(1));
   let emailChangeReturn = authHash.get('type') === 'email_change' || params.get('type') === 'email_change';
   const requestedReturn = params.get('return');
@@ -352,6 +354,12 @@
     countElement.textContent = String(data.referral_count || 0);
     document.getElementById('clientReferralLink').value = `${location.origin}${location.pathname}?mode=signup&ref=${encodeURIComponent(data.referral_code)}`;
     receivedSection.hidden = Boolean(data.has_referrer);
+    if (!data.has_referrer) {
+      const pendingCode = referralParam || localStorage.getItem('alfred-ea-pending-referral') || '';
+      if (pendingCode) document.getElementById('receivedReferralCode').value = pendingCode;
+    } else {
+      localStorage.removeItem('alfred-ea-pending-referral');
+    }
     const referrals = Array.isArray(data.referrals) ? data.referrals : [];
     historyElement.replaceChildren();
     if (!referrals.length) {
@@ -391,6 +399,7 @@
       return;
     }
     feedback.textContent = 'Code de recommandation enregistré.';
+    localStorage.removeItem('alfred-ea-pending-referral');
     await loadReferralDashboard();
   });
 
