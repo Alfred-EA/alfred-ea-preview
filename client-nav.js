@@ -22,12 +22,12 @@
       .live-strip .live-stat:nth-child(2){border-left:0!important}
       .live-strip .live-stat span{font-size:7px!important;line-height:1.25!important;white-space:normal!important}
       .live-strip .live-stat strong{display:block!important;width:100%!important;margin-top:4px!important;font-size:clamp(12px,3.6vw,16px)!important;line-height:1.2!important;letter-spacing:-.02em!important;white-space:nowrap!important;overflow:visible!important}
-      .top-performance .stats{grid-template-columns:1fr!important}
-      .top-performance .stat{display:grid!important;grid-template-columns:minmax(0,1fr) auto!important;align-items:center!important;gap:8px!important;padding:11px 8px!important;border-left:0!important;text-align:left!important}
-      .top-performance .stat+.stat{border-top:1px solid var(--line)!important}
-      .top-performance .stat strong{margin:0!important;text-align:right!important;white-space:nowrap!important;font-size:22px!important}
-      .top-performance .stat span{font-size:9px!important}
-      .top-performance .live-pill{grid-column:1/-1!important;justify-self:start!important;margin:0!important}
+      .top-performance .stats{grid-template-columns:repeat(3,minmax(0,1fr))!important}
+      .top-performance .stat{display:block!important;min-width:0!important;padding:10px 5px!important;text-align:center!important;border-top:0!important;overflow:visible!important}
+      .top-performance .stat:first-child{border-left:0!important}
+      .top-performance .stat+.stat{border-left:1px solid var(--line)!important}
+      .top-performance .stat strong{display:block!important;width:100%!important;margin:5px 0 0!important;text-align:center!important;white-space:nowrap!important;font-size:clamp(14px,4vw,18px)!important;line-height:1.2!important;overflow:visible!important}
+      .top-performance .stat span{font-size:7px!important;line-height:1.3!important}
     }
     .global-current-week{display:flex;align-items:center;justify-content:center;gap:10px;min-height:42px;padding:8px 16px;border-bottom:1px solid rgba(219,180,83,.22);background:linear-gradient(90deg,#05080d,rgba(219,180,83,.08),#05080d);color:#969590;font-size:11px;letter-spacing:.06em;text-align:center}
     .global-current-week strong{color:#f2d47d;font-size:16px;letter-spacing:0}
