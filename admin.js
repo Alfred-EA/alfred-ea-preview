@@ -79,7 +79,16 @@
       return;
     }
     const members = Array.isArray(data) ? data : [];
-    referralAdminList.innerHTML = members.length ? members.map(member => `<article class="referral-admin-row"><strong>${escapeHtml(member.full_name || 'Membre')}</strong><span class="referral-code">${escapeHtml(member.referral_code)}</span><span>${Number(member.referral_count || 0)} recommandation${Number(member.referral_count || 0) === 1 ? '' : 's'}</span><span>${Number(member.eligible_count || 0)} admissible${Number(member.eligible_count || 0) === 1 ? '' : 's'}</span><span>${Number(member.reward_cad || 0).toLocaleString('fr-CA',{style:'currency',currency:'CAD'})}</span></article>`).join('') : '<p class="referral-admin-empty">Aucun membre inscrit au programme.</p>';
+    const stateLabels={received:'Code reçu',validating:'En validation',ready:'Prête à approuver',approved:'Approuvée',paid:'Payée',cancelled:'Annulée'};
+    referralAdminList.innerHTML = members.length ? members.map(member => {
+      const referrals=Array.isArray(member.referrals)?member.referrals:[];
+      const detailsHtml=referrals.length?referrals.map(referral=>{
+        const qualifies=referral.qualifies_on?new Date(`${referral.qualifies_on}T12:00:00`).toLocaleDateString('fr-CA'):'À confirmer';
+        const action=referral.status==='ready'?`<button class="button referral-action" data-referral-id="${escapeHtml(referral.user_id)}" data-referral-action="approve">Approuver 25 $ CA</button>`:referral.status==='approved'?`<button class="button referral-action" data-referral-id="${escapeHtml(referral.user_id)}" data-referral-action="pay">Marquer comme payée</button>`:'';
+        return `<div class="referral-detail-row"><div><strong>${escapeHtml(referral.full_name||'Nouveau membre')}</strong><small>${escapeHtml(referral.reference)}</small></div><span class="referral-state">${escapeHtml(stateLabels[referral.status]||referral.status)}</span><span>Admissible le ${escapeHtml(qualifies)}</span><div>${action}</div></div>`;
+      }).join(''):'<p class="referral-admin-empty">Aucune recommandation pour ce membre.</p>';
+      return `<details class="referral-member"><summary class="referral-member-summary"><strong>${escapeHtml(member.full_name||'Membre')}</strong><span class="referral-code">${escapeHtml(member.referral_code)}</span><span>${Number(member.referral_count||0)} recommandation${Number(member.referral_count||0)===1?'':'s'}</span><span>${Number(member.eligible_count||0)} admissible${Number(member.eligible_count||0)===1?'':'s'}</span><span>${Number(member.reward_cad||0).toLocaleString('fr-CA',{style:'currency',currency:'CAD'})}</span></summary><div class="referral-details">${detailsHtml}</div></details>`;
+    }).join('') : '<p class="referral-admin-empty">Aucun membre inscrit au programme.</p>';
     referralAdminStatus.textContent = `${members.length} membre${members.length === 1 ? '' : 's'} affiché${members.length === 1 ? '' : 's'}.`;
   }
 
@@ -95,6 +104,19 @@
     if (button) setAdminView(button.dataset.adminView);
   });
   document.getElementById('refreshReferrals').addEventListener('click', loadAdminReferrals);
+  referralAdminList.addEventListener('click',async event=>{
+    const button=event.target.closest('.referral-action');
+    if(!button)return;
+    const action=button.dataset.referralAction;
+    if(action==='pay'&&!confirm('Confirmer que la récompense de 25 $ CA a réellement été remise au membre?'))return;
+    const pin=prompt(`Entrez votre PIN administrateur à 4 chiffres pour ${action==='approve'?'approuver':'marquer comme payée'} cette recommandation :`);
+    if(!pin)return;
+    button.disabled=true; referralAdminStatus.textContent='Vérification et enregistrement…';
+    const {error}=await sb.rpc('admin_update_referral_reward',{p_referred_user_id:button.dataset.referralId,p_action:action,p_pin:pin});
+    if(error){button.disabled=false;referralAdminStatus.textContent=error.message||'Action refusée.';return;}
+    referralAdminStatus.textContent=action==='approve'?'Recommandation approuvée.':'Récompense marquée comme payée.';
+    await loadAdminReferrals();
+  });
 
   async function requireAdministratorMfa() {
     const [{data:aal,error:aalError},{data:factors,error:factorsError}] = await Promise.all([sb.auth.mfa.getAuthenticatorAssuranceLevel(),sb.auth.mfa.listFactors()]);
