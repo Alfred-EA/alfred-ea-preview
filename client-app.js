@@ -44,6 +44,43 @@
       <article class="dashboard-panel account-settings-panel"><h2>Paramètres de connexion</h2><p class="security-note">Confirmez votre mot de passe actuel avant de modifier votre adresse courriel ou votre mot de passe.</p><form id="accountSettingsForm" class="secure-form"><div class="settings-grid"><div class="compact-field"><label for="settingsEmail">Nouvelle adresse courriel</label><input id="settingsEmail" type="email" autocomplete="email"></div><div class="compact-field"><label for="settingsCurrentPassword">Mot de passe actuel</label><input id="settingsCurrentPassword" type="password" autocomplete="current-password" required></div><div class="compact-field"><label for="settingsNewPassword">Nouveau mot de passe</label><input id="settingsNewPassword" type="password" autocomplete="new-password" minlength="10" placeholder="Laisser vide pour conserver"></div><div class="compact-field"><label for="settingsConfirmPassword">Confirmer le nouveau mot de passe</label><input id="settingsConfirmPassword" type="password" autocomplete="new-password" minlength="10"></div></div><button class="submit" type="submit">Enregistrer mes changements</button><p class="form-feedback" id="accountSettingsStatus" role="status"></p></form></article>
     </div>`;
   document.querySelector('.page').appendChild(dashboard);
+  const setupMobilePanels = () => {
+    dashboard.querySelectorAll('.dashboard-columns > .dashboard-panel, .secure-sections > .dashboard-panel').forEach((panel, index) => {
+      const heading = panel.querySelector(':scope > h2');
+      if (!heading || panel.classList.contains('mobile-collapsible')) return;
+      const content = document.createElement('div');
+      content.className = 'mobile-panel-content';
+      while (heading.nextSibling) content.appendChild(heading.nextSibling);
+      const toggle = document.createElement('button');
+      toggle.className = 'mobile-panel-toggle';
+      toggle.type = 'button';
+      toggle.setAttribute('aria-expanded', 'false');
+      toggle.setAttribute('aria-controls', `mobilePanel${index}`);
+      toggle.innerHTML = `<span>${heading.textContent}</span>`;
+      content.id = `mobilePanel${index}`;
+      content.hidden = true;
+      heading.replaceWith(toggle);
+      panel.appendChild(content);
+      panel.classList.add('mobile-collapsible');
+      toggle.addEventListener('click', () => {
+        const open = toggle.getAttribute('aria-expanded') !== 'true';
+        toggle.setAttribute('aria-expanded', String(open));
+        content.hidden = !open;
+      });
+    });
+    const syncPanels = () => {
+      const mobile = matchMedia('(max-width:700px)').matches;
+      dashboard.querySelectorAll('.mobile-collapsible').forEach(panel => {
+        const toggle = panel.querySelector(':scope > .mobile-panel-toggle');
+        const content = panel.querySelector(':scope > .mobile-panel-content');
+        if (!mobile) content.hidden = false;
+        else content.hidden = toggle.getAttribute('aria-expanded') !== 'true';
+      });
+    };
+    syncPanels();
+    addEventListener('resize', syncPanels);
+  };
+  setupMobilePanels();
 
   const recoveryPanel = document.createElement('section');
   recoveryPanel.className = 'auth-card password-recovery-panel';
