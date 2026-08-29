@@ -23,6 +23,10 @@
   const systemHealth = document.getElementById('systemHealth');
   const systemHealthCards = document.getElementById('systemHealthCards');
   const systemHealthStatus = document.getElementById('systemHealthStatus');
+  const adminTabs = document.getElementById('adminTabs');
+  const referralAdmin = document.getElementById('referralAdmin');
+  const referralAdminList = document.getElementById('referralAdminList');
+  const referralAdminStatus = document.getElementById('referralAdminStatus');
   const mfaGate = document.getElementById('mfaGate');
   const mfaSetup = document.getElementById('mfaSetup');
   const mfaForm = document.getElementById('mfaForm');
@@ -65,6 +69,32 @@
     systemHealthCards.innerHTML=(data||[]).map(item=>`<article class="summary-card"><span>${escapeHtml(labels[item.metric]||item.metric)}</span><strong style="color:${item.status==='attention'?'#ff9f9f':'var(--gold2)'}">${escapeHtml(item.value)}</strong><small>${item.status==='attention'?'Attention requise':item.status==='ok'?'Fonctionnement normal':'Information'}</small></article>`).join('');
     systemHealthStatus.textContent=(data||[]).some(item=>item.status==='attention')?'Une anomalie nécessite une vérification.':'Aucune anomalie détectée.';
   }
+
+  async function loadAdminReferrals() {
+    referralAdminStatus.textContent = 'Chargement…';
+    const {data,error} = await sb.rpc('admin_referral_dashboard');
+    if (error) {
+      referralAdminList.innerHTML = '<p class="referral-admin-empty">Impossible de charger les recommandations.</p>';
+      referralAdminStatus.textContent = 'Vérifiez la migration du programme dans Supabase.';
+      return;
+    }
+    const members = Array.isArray(data) ? data : [];
+    referralAdminList.innerHTML = members.length ? members.map(member => `<article class="referral-admin-row"><strong>${escapeHtml(member.full_name || 'Membre')}</strong><span class="referral-code">${escapeHtml(member.referral_code)}</span><span>${Number(member.referral_count || 0)} recommandation${Number(member.referral_count || 0) === 1 ? '' : 's'}</span><span>${Number(member.eligible_count || 0)} admissible${Number(member.eligible_count || 0) === 1 ? '' : 's'}</span><span>${Number(member.reward_cad || 0).toLocaleString('fr-CA',{style:'currency',currency:'CAD'})}</span></article>`).join('') : '<p class="referral-admin-empty">Aucun membre inscrit au programme.</p>';
+    referralAdminStatus.textContent = `${members.length} membre${members.length === 1 ? '' : 's'} affiché${members.length === 1 ? '' : 's'}.`;
+  }
+
+  function setAdminView(view) {
+    const showReferrals = view === 'referrals';
+    adminTabs.querySelectorAll('.admin-tab').forEach(button => button.classList.toggle('active', button.dataset.adminView === view));
+    referralAdmin.hidden = !showReferrals;
+    [monthlySummary,systemHealth,grid,adminPinPanel,mt5Publisher].forEach(section => { section.hidden = showReferrals; });
+    if (showReferrals) loadAdminReferrals();
+  }
+  adminTabs.addEventListener('click', event => {
+    const button = event.target.closest('.admin-tab');
+    if (button) setAdminView(button.dataset.adminView);
+  });
+  document.getElementById('refreshReferrals').addEventListener('click', loadAdminReferrals);
 
   async function requireAdministratorMfa() {
     const [{data:aal,error:aalError},{data:factors,error:factorsError}] = await Promise.all([sb.auth.mfa.getAuthenticatorAssuranceLevel(),sb.auth.mfa.listFactors()]);
@@ -217,7 +247,7 @@
     if (error) { status.textContent = 'Impossible de charger les dossiers.'; return; }
     if (membershipError) { status.textContent = 'Impossible de charger les abonnements.'; return; }
     const {data:hasPin} = await sb.rpc('has_admin_pin');
-    status.hidden = true; monthlySummary.hidden = false; systemHealth.hidden = false; grid.hidden = false; mt5Publisher.hidden = false; adminPinPanel.hidden = false; clients.replaceChildren();
+    status.hidden = true; adminTabs.hidden = false; monthlySummary.hidden = false; systemHealth.hidden = false; grid.hidden = false; mt5Publisher.hidden = false; adminPinPanel.hidden = false; clients.replaceChildren();
     const today = new Date(); summaryMonth.value = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}`; loadMonthlySummary(summaryMonth.value); loadSystemHealth();
     document.getElementById('adminPinHelp').textContent = hasPin ? 'Entrez votre PIN actuel avant de choisir un nouveau PIN.' : 'Créez votre PIN de 4 chiffres avant d’approuver un membre ou d’afficher un mot de passe MT5.';
     document.getElementById('currentPinField').hidden = !hasPin;
