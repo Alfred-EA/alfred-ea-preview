@@ -34,7 +34,11 @@
     const { data, error } = await sb.functions.invoke('create-checkout-session', { body: { level: selectedLevel } });
     if (error || !data?.url) {
       checkoutButton.disabled = false;
-      checkoutStatus.textContent = data?.error || 'Impossible de démarrer le paiement pour le moment.';
+      let message = data?.error || '';
+      if (!message && error?.context) {
+        try { message = (await error.context.clone().json())?.error || ''; } catch (_) {}
+      }
+      checkoutStatus.textContent = message || error?.message || 'Impossible de démarrer le paiement pour le moment.';
       return;
     }
     sessionStorage.removeItem('alfredCheckoutLevel');
