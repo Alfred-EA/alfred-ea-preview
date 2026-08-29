@@ -29,6 +29,8 @@
   dashboard.innerHTML = `
     <div class="dashboard-head"><div><div class="eyebrow">ESPACE SÉCURISÉ</div><h1 id="welcomeName">Bonjour</h1></div><button class="dashboard-action" id="logoutButton" type="button">Déconnexion</button></div>
     <div class="ea-performance"><div class="performance-title">PERFORMANCE EA LIVE</div><div class="performance-stat"><span>Semaine</span><strong id="clientFxWeek">--</strong></div><div class="performance-stat"><span>Mois</span><strong id="clientFxMonth">--</strong></div><div class="performance-stat"><span>Depuis ouverture</span><strong id="clientFxTotal">--</strong></div></div>
+    <nav class="client-section-tabs" aria-label="Sections de l’espace client"><button class="client-section-tab active" type="button" data-client-view="clientOverview">Vue d’ensemble et comptes</button><button class="client-section-tab" type="button" data-client-view="clientReferrals">Recommandations</button></nav>
+    <section class="client-section-view active" id="clientOverview">
     <div class="dashboard-grid">
       <article class="dashboard-card"><span>ABONNEMENT</span><strong id="membershipPlan">Chargement…</strong><p id="membershipStatus">—</p></article>
       <article class="dashboard-card"><span>FACTURES</span><strong id="invoiceCount">0</strong><p>Documents disponibles</p></article>
@@ -42,8 +44,18 @@
       <article class="dashboard-panel"><h2>Mes comptes MT5</h2><p class="security-note">Enregistrez jusqu’à cinq comptes. Le mot de passe est chiffré et chaque consultation exige une nouvelle authentification administrateur.</p><form id="mt5Form" class="secure-form"><div id="mt5Rows"></div><button class="submit" type="submit">Enregistrer et transmettre</button><p class="form-feedback" id="mt5Status" role="status"></p></form></article>
       <article class="dashboard-panel"><h2>Permis de conduire</h2><p class="security-note">Téléversement privé — JPG, PNG, WebP ou PDF, maximum 10 Mo par fichier.</p><p class="license-privacy-note"><strong>* Confidentialité :</strong> Votre permis de conduire est demandé uniquement pour les vérifications nécessaires à l’ouverture de votre compte courtier. Il n’est utilisé à aucune autre fin. Les pièces d’identité sont supprimées de manière sécurisée dès qu’elles ne sont plus nécessaires au traitement de votre dossier, sous réserve des délais de conservation exigés par la loi.</p><form id="licenseForm" class="secure-form"><div class="upload-grid"><div class="upload-box"><label for="licenseFront">Recto du permis</label><input id="licenseFront" type="file" accept="image/jpeg,image/png,image/webp,application/pdf" required></div><div class="upload-box"><label for="licenseBack">Verso du permis</label><input id="licenseBack" type="file" accept="image/jpeg,image/png,image/webp,application/pdf" required></div></div><button class="submit" type="submit">Enregistrer mon permis</button><p class="form-feedback" id="licenseStatus" role="status"></p></form></article>
       <article class="dashboard-panel account-settings-panel"><h2>Paramètres de connexion</h2><p class="security-note">Confirmez votre mot de passe actuel avant de modifier votre adresse courriel ou votre mot de passe.</p><form id="accountSettingsForm" class="secure-form"><div class="settings-grid"><div class="compact-field"><label for="settingsEmail">Nouvelle adresse courriel</label><input id="settingsEmail" type="email" autocomplete="email"></div><div class="compact-field"><label for="settingsCurrentPassword">Mot de passe actuel</label><input id="settingsCurrentPassword" type="password" autocomplete="current-password" required></div><div class="compact-field"><label for="settingsNewPassword">Nouveau mot de passe</label><input id="settingsNewPassword" type="password" autocomplete="new-password" minlength="10" placeholder="Laisser vide pour conserver"></div><div class="compact-field"><label for="settingsConfirmPassword">Confirmer le nouveau mot de passe</label><input id="settingsConfirmPassword" type="password" autocomplete="new-password" minlength="10"></div></div><button class="submit" type="submit">Enregistrer mes changements</button><p class="form-feedback" id="accountSettingsStatus" role="status"></p></form></article>
-    </div>`;
+    </div></section>
+    <section class="client-section-view" id="clientReferrals">
+      <article class="dashboard-panel referral-panel"><div class="eyebrow">PROGRAMME DE RECOMMANDATION</div><h2>Invitez un ami et soyez récompensé</h2><p>Chaque recommandation admissible donne droit à une récompense fixe de 25 $ CA.</p><div class="referral-main-grid"><div class="referral-box"><span>VOTRE CODE PERSONNEL</span><strong id="clientReferralCode">Chargement…</strong><small>Créé automatiquement avec votre compte</small></div><div class="referral-box"><span>RÉCOMPENSE</span><strong>25 $ CA</strong><small>par recommandation admissible</small></div></div><p class="referral-rule">Une recommandation devient admissible après 30 jours d’abonnement payé et actif.</p><div class="referral-copy"><label for="clientReferralLink">Votre lien de recommandation</label><input id="clientReferralLink" readonly><button class="submit" id="copyReferralLink" type="button">Copier le lien</button></div><div class="received-referral" id="receivedReferralSection"><strong>J’ai reçu un code de recommandation</strong><form id="receivedReferralForm"><input id="receivedReferralCode" maxlength="24" placeholder="Ex. ALFRED-5678" required><button class="submit" type="submit">Enregistrer le code</button></form><p id="receivedReferralStatus"></p></div></article>
+      <article class="dashboard-panel referral-history-panel"><div class="referral-count"><span>RECOMMANDATIONS EFFECTUÉES</span><strong id="clientReferralCount">0</strong><p>Personnes ayant créé un compte avec votre code</p></div><h2>Suivi de mes recommandations</h2><div id="clientReferralHistory"><p>Aucune recommandation pour le moment.</p></div></article>
+    </section>`;
   document.querySelector('.page').appendChild(dashboard);
+  dashboard.querySelectorAll('.client-section-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      dashboard.querySelectorAll('.client-section-tab').forEach(item => item.classList.toggle('active', item === tab));
+      dashboard.querySelectorAll('.client-section-view').forEach(view => view.classList.toggle('active', view.id === tab.dataset.clientView));
+    });
+  });
   const setupMobilePanels = () => {
     dashboard.querySelectorAll('.dashboard-columns > .dashboard-panel, .secure-sections > .dashboard-panel').forEach((panel, index) => {
       const heading = panel.querySelector(':scope > h2');
@@ -318,6 +330,70 @@
   document.getElementById('cancelSubscriptionButton').addEventListener('click', openStripePortal);
   document.getElementById('paymentMethodButton').addEventListener('click', openStripePortal);
 
+  const referralStatusLabels = {
+    eligible: 'Admissible',
+    validating: 'En validation',
+    cancelled: 'Annulée',
+    created: 'Compte créé'
+  };
+  async function loadReferralDashboard() {
+    const codeElement = document.getElementById('clientReferralCode');
+    const countElement = document.getElementById('clientReferralCount');
+    const historyElement = document.getElementById('clientReferralHistory');
+    const receivedSection = document.getElementById('receivedReferralSection');
+    const { data, error } = await sb.rpc('get_my_referral_dashboard');
+    if (error || !data) {
+      codeElement.textContent = 'Bientôt disponible';
+      countElement.textContent = '0';
+      historyElement.innerHTML = '<p>Le programme de recommandation est en cours de configuration.</p>';
+      return;
+    }
+    codeElement.textContent = data.referral_code;
+    countElement.textContent = String(data.referral_count || 0);
+    document.getElementById('clientReferralLink').value = `${location.origin}${location.pathname}?mode=signup&ref=${encodeURIComponent(data.referral_code)}`;
+    receivedSection.hidden = Boolean(data.has_referrer);
+    const referrals = Array.isArray(data.referrals) ? data.referrals : [];
+    historyElement.replaceChildren();
+    if (!referrals.length) {
+      historyElement.innerHTML = '<p>Aucune recommandation pour le moment.</p>';
+      return;
+    }
+    referrals.forEach(referral => {
+      const row = document.createElement('div');
+      row.className = 'referral-history-row';
+      const reference = document.createElement('strong');
+      reference.textContent = `Recommandation ${referral.reference}`;
+      const state = document.createElement('span');
+      state.textContent = referralStatusLabels[referral.status] || referral.status || 'Compte créé';
+      row.append(reference, state);
+      historyElement.appendChild(row);
+    });
+  }
+  document.getElementById('copyReferralLink').addEventListener('click', async event => {
+    const link = document.getElementById('clientReferralLink').value;
+    if (!link) return;
+    await navigator.clipboard.writeText(link);
+    const button = event.currentTarget;
+    button.textContent = 'Lien copié';
+    setTimeout(() => { button.textContent = 'Copier le lien'; }, 1800);
+  });
+  document.getElementById('receivedReferralForm').addEventListener('submit', async event => {
+    event.preventDefault();
+    const input = document.getElementById('receivedReferralCode');
+    const feedback = document.getElementById('receivedReferralStatus');
+    const submit = event.currentTarget.querySelector('button[type="submit"]');
+    submit.disabled = true;
+    feedback.textContent = 'Vérification du code…';
+    const { error } = await sb.rpc('apply_referral_code', { p_code: input.value.trim() });
+    submit.disabled = false;
+    if (error) {
+      feedback.textContent = error.message || 'Ce code ne peut pas être enregistré.';
+      return;
+    }
+    feedback.textContent = 'Code de recommandation enregistré.';
+    await loadReferralDashboard();
+  });
+
   async function loadDashboard(user) {
     layout.hidden = true;
     dashboard.hidden = false;
@@ -378,6 +454,7 @@
       accountInput.dataset.saved = account ? 'true' : 'false';
       passwordInput.placeholder = account ? 'Laisser vide pour conserver' : 'Requis pour ce compte';
     }
+    await loadReferralDashboard();
   }
 
   loginForm.addEventListener('submit', async event => {
