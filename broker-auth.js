@@ -1,7 +1,8 @@
 (() => {
   const PROJECT_URL = 'https://lstjmanxzpsnuxonspfc.supabase.co';
   const PUBLISHABLE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxzdGptYW54enBzbnV4b25zcGZjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU2NzAxNjMsImV4cCI6MjEwMTI0NjE2M30.BVjCyTVWsODT6cpRKCSak5PI5a_4uhxifHP5z_ScqO8';
-  const sb = window.supabase.createClient(PROJECT_URL, PUBLISHABLE_KEY);
+  const sb = window.alfredSupabaseClient || window.supabase.createClient(PROJECT_URL, PUBLISHABLE_KEY);
+  window.alfredSupabaseClient = sb;
   const shell = document.querySelector('.shell');
   const APPLICATION_KEY = 'alfredBrokerApplication';
   const APPLICATION_TTL = 24 * 60 * 60 * 1000;
@@ -33,6 +34,14 @@
 
   sessionReady.then(({ data, error }) => {
     if (error || !data.session?.user) return;
+    const emailInput = document.getElementById('clientEmail');
+    const nameInput = document.getElementById('clientName');
+    if (emailInput) {
+      const authenticatedEmail = data.session.user.email || '';
+      emailInput.value = authenticatedEmail;
+      emailInput.readOnly = Boolean(authenticatedEmail);
+    }
+    if (nameInput && !nameInput.value) nameInput.value = data.session.user.user_metadata?.full_name || '';
     const saved = localStorage.getItem(APPLICATION_KEY);
     if (!saved || !window.resumeBrokerApplication) return;
     localStorage.removeItem(APPLICATION_KEY);

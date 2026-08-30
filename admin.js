@@ -27,6 +27,9 @@
   const referralAdmin = document.getElementById('referralAdmin');
   const referralAdminList = document.getElementById('referralAdminList');
   const referralAdminStatus = document.getElementById('referralAdminStatus');
+  const brokerApplicationsAdmin = document.getElementById('brokerApplicationsAdmin');
+  const brokerApplicationsList = document.getElementById('brokerApplicationsList');
+  const brokerApplicationsStatus = document.getElementById('brokerApplicationsStatus');
   const mfaGate = document.getElementById('mfaGate');
   const mfaSetup = document.getElementById('mfaSetup');
   const mfaForm = document.getElementById('mfaForm');
@@ -92,18 +95,59 @@
     referralAdminStatus.textContent = `${members.length} membre${members.length === 1 ? '' : 's'} affiché${members.length === 1 ? '' : 's'}.`;
   }
 
+  async function loadBrokerApplications() {
+    brokerApplicationsStatus.textContent='Chargement…';
+    const {data:applications,error}=await sb.from('broker_applications').select('*').order('submitted_at',{ascending:false});
+    if(error){brokerApplicationsList.innerHTML='<p class="muted">Impossible de charger les demandes.</p>';brokerApplicationsStatus.textContent='Vérifiez la migration des demandes courtiers dans Supabase.';return;}
+    const documentIds=[...new Set((applications||[]).flatMap(item=>[item.license_front_document_id,item.license_back_document_id]).filter(Boolean))];
+    let documentsById=new Map();
+    if(documentIds.length){const {data:documents}=await sb.from('documents').select('id,storage_path,display_name').in('id',documentIds);documentsById=new Map((documents||[]).map(document=>[document.id,document]));}
+    const statusLabels={submitted:'Nouvelle',reviewing:'En vérification',action_required:'Action requise',approved:'Approuvée',rejected:'Refusée',archived:'Archivée'};
+    const trackingLabels={pending:'À vérifier',verified:'Lien Alfred-EA confirmé',not_eligible:'Attribution non admissible'};
+    brokerApplicationsList.innerHTML=(applications||[]).length?(applications||[]).map(application=>{
+      const front=documentsById.get(application.license_front_document_id); const back=documentsById.get(application.license_back_document_id);
+      const submitted=new Date(application.submitted_at).toLocaleString('fr-CA');
+      const existing=(application.existing_brokers||[]).join(', ')||'Aucun'; const preferred=(application.preferred_brokers||[]).join(', ')||'À confirmer';
+      const documents=`${front?`<button class="button broker-open-document" type="button" data-application-id="${application.id}" data-side="front">Ouvrir le recto</button>`:''}${back?`<button class="button broker-open-document" type="button" data-application-id="${application.id}" data-side="back">Ouvrir le verso</button>`:''}`||'<small>Documents indisponibles</small>';
+      return `<article class="broker-application-card" data-application-id="${application.id}"><div class="broker-application-summary"><div><strong>${escapeHtml(application.full_name)}</strong><small>${escapeHtml(application.email)}</small></div><div><strong>${escapeHtml(statusLabels[application.status]||application.status)}</strong><small>${escapeHtml(submitted)}</small></div><div><strong>${Number(application.account_value_usd).toLocaleString('fr-CA')} $ USD</strong><small>${escapeHtml(application.subscription_level)}</small></div></div><div class="broker-application-meta"><strong>Compte existant :</strong> ${escapeHtml(existing)} · <strong>Courtier recommandé :</strong> ${escapeHtml(preferred)} · <strong>Référé par :</strong> ${escapeHtml(application.referred_by||'Non indiqué')} · <strong>Notification :</strong> ${escapeHtml(application.notification_status)}</div><div class="broker-document-actions">${documents}</div><form class="broker-review-form" data-application-id="${application.id}"><label>État de la demande<select name="status"><option value="submitted">Nouvelle</option><option value="reviewing">En vérification</option><option value="action_required">Action requise</option><option value="approved">Approuvée</option><option value="rejected">Refusée</option><option value="archived">Archivée</option></select></label><label>Attribution du lien<select name="tracking"><option value="pending">À vérifier</option><option value="verified">Lien Alfred-EA confirmé</option><option value="not_eligible">Non admissible</option></select></label><label class="wide">Notes internes<textarea name="notes" maxlength="4000" placeholder="Notes visibles uniquement par l’administration">${escapeHtml(application.admin_notes||'')}</textarea></label><label>PIN administrateur<input name="pin" type="password" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" required></label><button class="button" type="submit">Enregistrer l’examen</button><p class="status broker-review-status"></p></form></article>`;
+    }).join(''):'<p class="muted">Aucune demande reçue.</p>';
+    (applications||[]).forEach(application=>{const form=brokerApplicationsList.querySelector(`form[data-application-id="${application.id}"]`);if(form){form.elements.status.value=application.status;form.elements.tracking.value=application.referral_tracking_status;}});
+    brokerApplicationsStatus.textContent=`${(applications||[]).length} demande${(applications||[]).length===1?'':'s'} affichée${(applications||[]).length===1?'':'s'}.`;
+  }
+
   function setAdminView(view) {
     const showReferrals = view === 'referrals';
+    const showApplications = view === 'applications';
+    const showOverview = view === 'overview';
     adminTabs.querySelectorAll('.admin-tab').forEach(button => button.classList.toggle('active', button.dataset.adminView === view));
     referralAdmin.hidden = !showReferrals;
-    [monthlySummary,systemHealth,grid,adminPinPanel,mt5Publisher].forEach(section => { section.hidden = showReferrals; });
+    brokerApplicationsAdmin.hidden = !showApplications;
+    [monthlySummary,systemHealth,grid,adminPinPanel,mt5Publisher].forEach(section => { section.hidden = !showOverview; });
     if (showReferrals) loadAdminReferrals();
+    if (showApplications) loadBrokerApplications();
   }
   adminTabs.addEventListener('click', event => {
     const button = event.target.closest('.admin-tab');
     if (button) setAdminView(button.dataset.adminView);
   });
   document.getElementById('refreshReferrals').addEventListener('click', loadAdminReferrals);
+  document.getElementById('refreshBrokerApplications').addEventListener('click', loadBrokerApplications);
+  brokerApplicationsList.addEventListener('click',async event=>{
+    const button=event.target.closest('.broker-open-document'); if(!button)return;
+    const pin=prompt('Entrez votre PIN administrateur à 4 chiffres pour ouvrir ce document privé :');if(!pin)return;
+    button.disabled=true; const {data:path,error:authorizationError}=await sb.rpc('authorize_broker_application_document',{p_application_id:button.dataset.applicationId,p_side:button.dataset.side,p_pin:pin});
+    if(authorizationError){button.disabled=false;alert('Accès refusé : PIN incorrect ou document indisponible.');return;}
+    const {data,error}=await sb.storage.from('client-documents').createSignedUrl(path,300); button.disabled=false;
+    if(error){alert('Document privé inaccessible.');return;} window.open(data.signedUrl,'_blank','noopener');
+  });
+  brokerApplicationsList.addEventListener('submit',async event=>{
+    const form=event.target.closest('.broker-review-form'); if(!form)return; event.preventDefault();
+    const feedback=form.querySelector('.broker-review-status'); const pin=form.elements.pin.value.trim();
+    if(!/^\d{4}$/.test(pin)){feedback.textContent='Entrez un PIN administrateur de 4 chiffres.';return;}
+    const button=form.querySelector('button[type="submit"]');button.disabled=true;feedback.textContent='Vérification et enregistrement…';
+    const {error}=await sb.rpc('admin_update_broker_application',{p_application_id:form.dataset.applicationId,p_status:form.elements.status.value,p_referral_tracking_status:form.elements.tracking.value,p_notes:form.elements.notes.value,p_pin:pin});
+    form.elements.pin.value='';button.disabled=false;if(error){feedback.textContent='Action refusée : vérifiez le PIN et la migration Supabase.';return;}feedback.textContent='Examen enregistré et journalisé.';await loadBrokerApplications();
+  });
   referralAdminList.addEventListener('click',async event=>{
     const button=event.target.closest('.referral-action');
     if(!button)return;
